@@ -7,12 +7,17 @@
 
 #define SCREEN_W 640
 #define SCREEN_H 740
+#define START_X 4;
+#define START_Y 0;
 
 #define FALSE 0
 #define TRUE 1
 
 #define SHAPE_SIZE 4
 #define ROTATION_COUNT 4
+
+#define COLLISION_OUT_OF_BOUNDS 1
+#define COLLISION_BLOCK_ALREADY_EXISTS 2
 
 // Tetris Shapes 
 static int i_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
