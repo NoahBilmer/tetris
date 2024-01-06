@@ -10,12 +10,8 @@
 *          false if the piece is colliding with another piece
 *          or will have non-zero values outside the board
 */
-int writeBlocks(int x, int y, int block[][4], int board[][23]) {
+int writeBlocks(int x, int y, int block[][SHAPE_SIZE], int board[][ROWS]) {
     int offsetRow,offsetCol;
-    // we are colliding with either another piece or beyond the edge of the baord.
-    if (colliding(x,y,block,board)) {
-        return FALSE; 
-    }
     // Loop through 
     for (int row = 0; row < SHAPE_SIZE; row++) {
         for (int col = 0; col < SHAPE_SIZE; col++) {      
@@ -33,26 +29,39 @@ int writeBlocks(int x, int y, int block[][4], int board[][23]) {
 
 /**
 * FUNCTION: colliding() 
-* Checks to see if a piece has any non-zero values colliding with other non-zero values
+* DESCRIPTION: Checks to see if a piece has any non-zero values colliding with other non-zero values
 * on the game board. Also checks to see if non-zero pieces are outside the game board.
-* RETURN: false if coliding with another piece or being placed outside the game board.
-*         true on success.
+* RETURN: 1 if coliding with another piece.
+*         2 if being placed outside the game board.
+*         0/false if no collisions.
 */ 
-int colliding(int x, int y, int block[][4], int board[][23]) {
+int colliding(int x, int y, int block[][SHAPE_SIZE], int board[][ROWS]) {
     int offsetRow,offsetCol;
     for (int row = 0; row < SHAPE_SIZE; row++) {
         for (int col = 0; col < SHAPE_SIZE; col++) {
             offsetRow = row + y; 
-            offsetCol = col + x;
-            // if we are attemping to place a piece outside the bounds of an array return false.
-            // only NON-ZERO elements are considered, meaning pieces should be able to go to all the way of the edge of the board
-            if (block[row][col] > 0 && ((offsetRow >= (ROWS) || offsetRow < 0) || (offsetCol >= (COLUMNS)) || offsetCol < 0)) {
-                return TRUE;
-            } 
-            else if ((block[offsetRow][offsetCol] > 0 && board[row][col] > 0)) {
-                return TRUE;
+            offsetCol = col + x; 
+            // if we are attemping to place a piece outside the array in the X dimension
+            if ((block[row][col] > 0 && ((offsetCol >= (COLUMNS) || offsetCol < 0) || (offsetRow >= (ROWS) || offsetRow < 0)))) {
+                return COLLISION_OUT_OF_BOUNDS;
+            }
+            // if we are attemping to place a piece at the same position of another piece
+            else if (((block[row][col] > 0) && (board[offsetRow][offsetCol] > 0))) {
+                return COLLISION_BLOCK_ALREADY_EXISTS;
             }
         }
     }
     return FALSE;
+}
+
+/**
+* FUNCTION: clearBoard() 
+* DESCRIPTION: Clears the specified board.
+*/ 
+void clearBoard(int board[][ROWS]) {
+    for (int row = 0; row < ROWS; row++) {
+        for (int col = 0; col < COLUMNS; col++) {
+            board[row][col] = 0;
+        }
+    }
 }
