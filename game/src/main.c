@@ -7,6 +7,8 @@
 #include "headers/globals.h"
 #include "raymath.h"        // Required for: Vector2Clamp()
 #include <stdio.h>
+#include <string.h>
+#include <time.h>
 
 #define MAX(a, b) ((a)>(b)? (a) : (b))
 #define MIN(a, b) ((a)<(b)? (a) : (b))
@@ -17,6 +19,8 @@ Texture2D digitsSpriteSheet;
 
 void drawBlock(int x, int y, int color, float scale);
 void drawBoard(int (*board)[ROWS],float scale);
+void getNewPiece(int (*piece)[SHAPE_SIZE][SHAPE_SIZE]);
+void drawNextPiece(int (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE],int scale);
 
 int main(void)
 {
@@ -27,7 +31,11 @@ int main(void)
     int (*landedBoard)[ROWS] = calloc(4,sizeof(int[ROWS][COLUMNS]));
 
     int x, y;
-    int (*currentBlock)[SHAPE_SIZE][SHAPE_SIZE] =  calloc(4,sizeof(int[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
+    int (*currentPiece)[SHAPE_SIZE][SHAPE_SIZE] = calloc(4,sizeof(int[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
+    int (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE] = calloc(4,sizeof(int[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
+    srand(time(NULL));
+    // Get our first piece.
+    getNewPiece(nextPiece);
 
     // Enable config flags for resizable window and vertical synchro
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
@@ -45,18 +53,6 @@ int main(void)
     SetTargetFPS(60);  // Set our game to run at 60 frames-per-second
     x = START_X;
     y = START_Y;
-    currentBlock = i_block;
-    #if DEBUG == 1
-    for (int row = 0; row < ROWS; row++) {
-        printf("\n");
-        for (int col = 0; col < COLUMNS; col++) {
-            printf("%d, ", fallingBoard[row][col]);
-        }
-    }  
-    #endif
-    
-   
-    printf("\n");
     
     int moveCooldown = 0;
     /* speed determines the number of frames it takes to move
@@ -85,7 +81,6 @@ int main(void)
         wishFastFall = FALSE;
         frameCount++;
         
-        
         // move the piece down if enough frames have elapsed.
         if (frameCount > speed) {
             frameCount = 0;
@@ -97,9 +92,11 @@ int main(void)
             x = START_X;
             y = START_Y;
             wishRotate = FALSE;
+            newPiece = FALSE;
             newRotation = 0;
             rotation = newRotation;
-            newPiece = FALSE;
+            memcpy(currentPiece,nextPiece,sizeof(int[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
+            getNewPiece(nextPiece);
         }
 
         // Get all the input for this current frame.
@@ -107,7 +104,7 @@ int main(void)
 
         // Process input
         if (wishFastFall == TRUE) {
-              speed = fastFallSpeed;
+            speed = fastFallSpeed;
         }
         else {
             speed = baseSpeed;
@@ -120,20 +117,20 @@ int main(void)
                 
         /*** Do all piece translations and or transformations ***/
         // Rotate the piece if we are not colliding 
-        if (wishRotate && colliding(x,y,currentBlock[newRotation],landedBoard) == 0) {
+        if (wishRotate && colliding(x,y,currentPiece[newRotation],landedBoard) == 0) {
                 rotation = newRotation;
         }
         // Move in the x direction if we are not colliding.
-        if (colliding(x + wishX,y,currentBlock[rotation],landedBoard) == 0) {
+        if (colliding(x + wishX,y,currentPiece[rotation],landedBoard) == 0) {
                x = x + wishX;             
         }
         /* Move in the y direction if we are not colliding.
          * This is the only instance in the game loop where we actually write the 
          * piece to the landedBoard. */
-        if (colliding(x,y + wishY,currentBlock[rotation],landedBoard) > 0) {
+        if (colliding(x,y + wishY,currentPiece[rotation],landedBoard) > 0) {
             clearBoard(fallingBoard);
             // Place this piece
-            writeBlocks(x,y,currentBlock[rotation],landedBoard);
+            writeBlocks(x,y,currentPiece[rotation],landedBoard);
             // create a new piece next iteration
             newPiece = TRUE; 
         }
@@ -144,7 +141,7 @@ int main(void)
         // Write to the fallingBoard
         if (wishRotate == TRUE || wishX != 0 || wishY != 0) {
             clearBoard(fallingBoard);
-            writeBlocks(x,y,currentBlock[rotation],fallingBoard);
+            writeBlocks(x,y,currentPiece[rotation],fallingBoard);
         }
 
         BeginDrawing();
@@ -156,10 +153,12 @@ int main(void)
                            (Vector2){ 0.0f, 0.0f }, 
                            0.0f, 
                            WHITE);
-
+        
         drawBoard(fallingBoard,scale);
         drawBoard(landedBoard,scale);
+        drawNextPiece(nextPiece,scale);
         EndDrawing();
+        
     }
 
     // De-Initialization
@@ -173,14 +172,16 @@ int main(void)
 /**
 * FUNCTION: getInput()
 * DESCRIPTION: Stores the user's current desired actions on the current frame.
+* NOTE: moveFrameCount is used to ensure that holding down the left and right keys
+*       move the piece at a manageable speed. 
 */ 
-void getInput(int* wishX, int* wishY, int*wishRotate, int* wishFastFall,int *moveFrameCount) {
+void getInput(int* wishX, int* wishY, int*wishRotate, int* wishFastFall, int *moveFrameCount) {
         if (IsKeyPressed(KEY_LEFT)) {
             *wishX -= 1;
             *moveFrameCount = 0;
         }
         else if (IsKeyDown(KEY_LEFT)) {
-           *moveFrameCount++;
+           (*moveFrameCount)++;
             if (*moveFrameCount > 8) {
                 *moveFrameCount = 0;
                 *wishX -= 1;
@@ -191,17 +192,17 @@ void getInput(int* wishX, int* wishY, int*wishRotate, int* wishFastFall,int *mov
         if (IsKeyPressed(KEY_RIGHT))
         {
             *wishX += 1;
-            *moveFrameCount = 0;
         }
         else if (IsKeyDown(KEY_RIGHT)) {
-            *moveFrameCount++;
+            (*moveFrameCount)++;
             if (*moveFrameCount > 8) {
-                *moveFrameCount = 0;
+                *moveFrameCount = 0;  
                 *wishX += 1;
             } else {
                 *wishX = 0;
             }
         }
+
         if (IsKeyPressed(KEY_SPACE)) {
             *wishRotate = TRUE;
         }
@@ -211,6 +212,40 @@ void getInput(int* wishX, int* wishY, int*wishRotate, int* wishFastFall,int *mov
         if (IsKeyReleased(KEY_DOWN)) {
            *wishFastFall = FALSE;
         }
+}
+
+/**
+* FUNCTION: getNewPiece() 
+* DESCRIPTION: Randomly selects a new piece to copy to the provided memory address.
+*/ 
+void getNewPiece(int (*piece)[SHAPE_SIZE][SHAPE_SIZE]) {
+    int pieceIndex = (rand() % 7) + 1;
+    int (*newPiece)[SHAPE_SIZE][SHAPE_SIZE];
+    switch (pieceIndex) {
+        case 1:
+            newPiece = i_block;
+            break;
+        case 2:
+            newPiece = o_block;
+            break;
+        case 3:
+            newPiece = j_block;
+            break;
+        case 4:
+            newPiece = l_block;
+            break;
+        case 5:
+            newPiece = s_block;
+            break;
+        case 6:
+            newPiece = z_block;
+            break;
+        case 7:
+            newPiece = t_block;
+            break;
+    }
+    // Copy the piece
+    memcpy(piece,newPiece,sizeof(int[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
 }
 
 /**
@@ -239,6 +274,19 @@ void drawBlock(int x, int y, int color,float scale) {
                            (Vector2){ -1*(60.0f + 32*x)*scale, -1*(14.0f + 32*(y))*scale }, 
                            0.0f, 
                            WHITE);
+}
+
+/**
+* FUNCTION: drawNextPiece()
+* DESCRIPTION: Draws the next piece to the screen. 
+*/ 
+void drawNextPiece(int (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE],int scale) { 
+    for (int i = 0; i < SHAPE_SIZE; i++) {
+            for (int j = 0; j < SHAPE_SIZE; j++) {
+                if (nextPiece[0][i][j] > 0)
+                    drawBlock(11 + i,7 + j,nextPiece[0][i][j],scale);
+            }
+        }
 }
 
 
