@@ -10,7 +10,7 @@
 *          false if the piece is colliding with another piece
 *          or will have non-zero values outside the board
 */
-int writeBlocks(int x, int y, int block[][SHAPE_SIZE], int board[][ROWS]) {
+int writeBlocks(int x, int y, int block[][SHAPE_SIZE], int board[][ROWS], int flashPiece) {
     int offsetRow,offsetCol;
     // Loop through 
     for (int row = 0; row < SHAPE_SIZE; row++) {
@@ -18,7 +18,13 @@ int writeBlocks(int x, int y, int block[][SHAPE_SIZE], int board[][ROWS]) {
             if (block[row][col] > 0) {
                 offsetRow = row + y; 
                 offsetCol = col + x;
-                board[offsetRow][offsetCol] = block[row][col];
+                if (flashPiece == TRUE) {
+                    board[offsetRow][offsetCol] = 8;
+                }
+                else {
+                     board[offsetRow][offsetCol] = block[row][col];
+                }
+               
             }
             
         }
@@ -65,3 +71,52 @@ void clearBoard(int board[][ROWS]) {
         }
     }
 }
+
+int checkLineClears(int board[][ROWS], int rowToClearArr[4]) {
+    int count = 0; 
+    int lineCount = 0;
+    for (int row = 0; row < ROWS; row++) {
+        count = 0;
+        for (int col = 0; col < COLUMNS; col++) {
+            if (board[row][col] > 0) {
+                count++;
+            }
+        if (count == 10) {
+            rowToClearArr[lineCount] = row;
+            lineCount++;
+        }
+        }
+    }
+    if (lineCount > 0)
+        return TRUE;
+    else 
+        return FALSE;
+}
+
+void toggleRowColor(int board[][ROWS], int row, int color) {
+    for (int row = row; row < ROWS; row++) {
+        for (int col = 0; col < COLUMNS; col++) {
+            board[row][col] = color;
+        }
+    }
+}
+
+
+
+void clearLineRows(int board[][ROWS],int rowsToClear[4]) {
+    printf("rowsToClearArr:\n[0]: %d,[1]: %d, [2]: %d, [3]: %d\n",
+    rowsToClear[0],rowsToClear[1],rowsToClear[2],rowsToClear[3]);
+    int count = 0;
+    for (count = 0; (count < 4); count++) {
+        if (rowsToClear[count] == -1) {
+            return;
+        }
+        for (int row = rowsToClear[count]; row > 2; row--) {
+            for (int col = 0; col < COLUMNS; col++) {
+                board[row][col] = board[row - 1][col];
+            }
+        }
+    }
+}
+
+
