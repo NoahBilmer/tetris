@@ -23,7 +23,7 @@ void processInput();
 void drawBlock(int x, int y, int color, float scale);
 void drawBoard(int (*board)[ROWS],float scale);
 void getNewPiece(int (*piece)[SHAPE_SIZE][SHAPE_SIZE]);
-void drawNextPiece(int (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE],int scale);
+void drawNextPiece(int (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE],float scale);
 void drawGameState();
 
 // Globals
@@ -63,8 +63,8 @@ RenderTexture2D target;
 int main(void)
 {
 
-    const int windowWidth = 800;
-    const int windowHeight = 800;
+    const int windowWidth = 820;
+    const int windowHeight = 760;
     landedBoard = calloc(4,sizeof(int[ROWS][COLUMNS]));
     fallingBoard = calloc(4,sizeof(int[ROWS][COLUMNS]));
 
@@ -324,7 +324,7 @@ void getNewPiece(int (*piece)[SHAPE_SIZE][SHAPE_SIZE]) {
 */ 
 void drawGameState() {
     // Compute required framebuffer scaling
-    float scale = MIN((float)GetScreenWidth()/SCREEN_W, (float)GetScreenHeight()/SCREEN_H);
+    float scale = MIN(((float)GetScreenWidth())/SCREEN_W, ((float)GetScreenHeight())/SCREEN_H);
     BeginDrawing();
             ClearBackground(BLACK);     // Clear screen background
             // Draw the UI texture to screen, properly scaled
@@ -359,12 +359,14 @@ void drawBoard(int (*board)[ROWS],float scale) {
 * DESCRIPTION: Draws the provided block to the screen.
 */ 
 void drawBlock(int x, int y, int color,float scale) {
-    float blockSize = 0.05;
+    // variables to adjust scaling to so that the blocks fit the screen properly
+    float blockSizeWidth = 0.04;
+    float blockSizeHeight = 0.0425;
     color--; // we start at 0 here but the blocks in the array start at 1, so subtract 1.
     DrawTexturePro(blocksSpriteSheet, (Rectangle){ 0.0f, color*32.0f, 32,32 }, 
                            (Rectangle){ (GetScreenWidth() - ((float)SCREEN_W*scale))*0.5f, (GetScreenHeight() - ((float)SCREEN_H*scale))*0.5f,
-                           (float)SCREEN_W*scale*blockSize, (float)SCREEN_H*scale*0.043 }, 
-                           (Vector2){ -1*(60.0f + 32*x)*scale, -1*(14.0f + 32*(y))*scale }, 
+                           (float)SCREEN_W*scale*blockSizeWidth, (float)SCREEN_H*scale*blockSizeHeight }, 
+                           (Vector2){ -1*(199.0f + 32*x)*scale, -1*(57.0f + 32*(y))*scale }, 
                            0.0f, 
                            WHITE);
 }
@@ -373,11 +375,11 @@ void drawBlock(int x, int y, int color,float scale) {
 * FUNCTION: drawNextPiece()
 * DESCRIPTION: Draws the next piece to the screen. 
 */ 
-void drawNextPiece(int (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE],int scale) { 
+void drawNextPiece(int (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE],float scale) { 
     for (int i = 0; i < SHAPE_SIZE; i++) {
             for (int j = 0; j < SHAPE_SIZE; j++) {
                 if (nextPiece[0][i][j] > 0)
-                    drawBlock(11 + i,7 + j,nextPiece[0][i][j],scale);
+                    drawBlock(12 + i,7 + j,nextPiece[0][i][j],scale);
             }
         }
 }

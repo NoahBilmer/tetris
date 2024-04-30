@@ -5,8 +5,8 @@
 #define ROWS 23
 #define BOARD_START 3
 
-#define SCREEN_W 640
-#define SCREEN_H 740
+#define SCREEN_W 820
+#define SCREEN_H 760
 #define START_X 4;
 #define START_Y 0;
 
