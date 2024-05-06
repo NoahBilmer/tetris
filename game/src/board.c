@@ -72,6 +72,13 @@ void clearBoard(int board[][ROWS]) {
     }
 }
 
+/**
+* FUNCTION: checkLineClears() 
+* DESCRIPTION: Checks to see if there are any full rows to clear on the specified board. The Y position of each row to clear 
+*              is recorded in rowToClearArr.
+* RETURN: TRUE if there is one or moe lines to clear.
+*         FALSE if no full rows are found.
+*/ 
 int checkLineClears(int board[][ROWS], int rowToClearArr[4]) {
     int count = 0; 
     int lineCount = 0;
@@ -93,19 +100,22 @@ int checkLineClears(int board[][ROWS], int rowToClearArr[4]) {
         return FALSE;
 }
 
+/**
+* FUNCTION: toggleRowColor() 
+* DESCRIPTION: Toggles the color of an entire row.
+*/ 
 void toggleRowColor(int board[][ROWS], int row, int color) {
-    for (int row = row; row < ROWS; row++) {
         for (int col = 0; col < COLUMNS; col++) {
             board[row][col] = color;
         }
-    }
 }
 
 
-
+/**
+* FUNCTION: clearBoard() 
+* DESCRIPTION: Clears all rows on the board at the Y positions specified in rowsToClear.
+*/ 
 void clearLineRows(int board[][ROWS],int rowsToClear[4]) {
-    printf("rowsToClearArr:\n[0]: %d,[1]: %d, [2]: %d, [3]: %d\n",
-    rowsToClear[0],rowsToClear[1],rowsToClear[2],rowsToClear[3]);
     int count = 0;
     for (count = 0; (count < 4); count++) {
         if (rowsToClear[count] == -1) {

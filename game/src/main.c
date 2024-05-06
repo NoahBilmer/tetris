@@ -18,25 +18,26 @@ Texture2D blocksSpriteSheet;
 Texture2D digitsSpriteSheet;
 
 void updateGameState();
-void getInput(int* wishX, int* wishY, int*wishRotate, int* wishFastFall, int *moveFrameCount,int* wishPause);
-void processInput();
+void getInput(int* wishX, int* wishY, int* wishRotate, int *moveFrameCount);
 void drawBlock(int x, int y, int color, float scale);
 void drawBoard(int (*board)[ROWS],float scale);
 void getNewPiece(int (*piece)[SHAPE_SIZE][SHAPE_SIZE]);
 void drawNextPiece(int (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE],float scale);
 void drawGameState();
 
+void playClearAnimation(int *color);
+
 // Globals
 int (*fallingBoard)[ROWS];
 int (*landedBoard)[ROWS];
+int (*landedBoardCpy)[ROWS];
 int (*currentPiece)[SHAPE_SIZE][SHAPE_SIZE];
 int (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE];
 int x = START_X;
 int y = START_Y;
 
 // input related globals 
-int wishX, wishY;
-int wishPause,wishRotate,wishFastFall;
+int wishX, wishY, wishRotate;
 
 int paused = 0;
 
@@ -54,7 +55,13 @@ int newRotation = 0;
 int animationFrameCount = 0;
 int gameState = STATE_MAIN_GAME_LOOP;
 int rowsToClearArr[4] = {-1,-1,-1,-1};
+// used to copy each row for the line clearing animation
+int rowCpyArr[4][COLUMNS];
 int lines = 0;
+int rowColor = 0;
+int swap = FALSE;
+// used for clearing animation
+int clearColor = 0;
 
 
 
@@ -67,7 +74,7 @@ int main(void)
     const int windowHeight = 760;
     landedBoard = calloc(4,sizeof(int[ROWS][COLUMNS]));
     fallingBoard = calloc(4,sizeof(int[ROWS][COLUMNS]));
-
+    landedBoardCpy = calloc(4,sizeof(int[ROWS][COLUMNS]));
     
     currentPiece = calloc(4,sizeof(int[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
     nextPiece = calloc(4,sizeof(int[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
@@ -102,14 +109,13 @@ int main(void)
     while (!WindowShouldClose())
     {
         // Get all the input for this current frame.
-        getInput(&wishX,&wishY,&wishRotate,&wishFastFall,&moveFrameCount,&wishPause);    
+        getInput(&wishX,&wishY,&wishRotate,&moveFrameCount);    
         
         // iterate the framecount
         frameCount++;
         
         switch (gameState) {
             case STATE_MAIN_GAME_LOOP:
-                processInput();
                 updateGameState();
                 break;
             case STATE_ANIMATION_MUZZLE_FLASH:
@@ -122,19 +128,15 @@ int main(void)
                 }
                 break;
             case STATE_ANIMATION_CLEAR_BLOCKS:
-                clearLineRows(landedBoard,rowsToClearArr);
-                gameState = STATE_MAIN_GAME_LOOP;
-                for (int i = 0; i < 4; i++) {
-                    rowsToClearArr[i] = -1;
-                }
+                animationFrameCount++;
+                playClearAnimation(&clearColor);
                 break;
             case STATE_PAUSED:
-                processInput();
                 break;
         }
        
         drawGameState();
-        if (checkLineClears(landedBoard,rowsToClearArr) == TRUE) {
+        if (checkLineClears(landedBoard,rowsToClearArr) == TRUE && gameState != STATE_ANIMATION_CLEAR_BLOCKS) {
             gameState = STATE_ANIMATION_CLEAR_BLOCKS;
         }
         
@@ -155,13 +157,11 @@ int main(void)
 * NOTE: moveFrameCount is used to ensure that holding down the left and right keys
 *       move the piece at a manageable speed. 
 */ 
-void getInput(int* wishX, int* wishY, int*wishRotate, int* wishFastFall, int *moveFrameCount,int* wishPause) {
+void getInput(int* wishX, int* wishY, int*wishRotate, int *moveFrameCount) {
         // reset input-related variables
         *wishY = 0;
         *wishX = 0;
         *wishRotate = FALSE;
-        *wishFastFall = FALSE;
-        *wishPause = FALSE;
         if (IsKeyPressed(KEY_LEFT)) {
             *wishX -= 1;
             *moveFrameCount = 0;
@@ -191,37 +191,22 @@ void getInput(int* wishX, int* wishY, int*wishRotate, int* wishFastFall, int *mo
 
         if (IsKeyPressed(KEY_SPACE)) {
             *wishRotate = TRUE;
-        }
-        if (IsKeyDown(KEY_DOWN)) {
-            *wishFastFall = TRUE;
-        }
-        if (IsKeyReleased(KEY_DOWN)) {
-           *wishFastFall = FALSE;
-        }
-        if (IsKeyPressed(KEY_TAB)) {
-            *wishPause = TRUE;
-        }
-}
-
-/**
-* FUNCTION: processInput() 
-* DESCRIPTION: 
-* // todo: is this sub-function a good idea?
-*/
-void processInput() {
-    // Process input
-        if (wishFastFall == TRUE) {
-            speed = fastFallSpeed;
-        }
-        else {
-            speed = baseSpeed;
-        }
-        if (wishRotate == TRUE) {
             newRotation++;
             if (newRotation > 3) 
                 newRotation = 0;
         }
-        if (wishPause) {
+        // If we wish to fastfall only do so when we are not about to collide in the Y direction
+        // This is to make last-second adjustments feel consistent 
+        if (IsKeyDown(KEY_DOWN) && !(colliding(x,y + 1,currentPiece[rotation],landedBoard) > 0)) {
+           speed = fastFallSpeed;
+        }
+        else {
+            speed = baseSpeed;
+        }
+        if (IsKeyReleased(KEY_DOWN)) {
+            speed = baseSpeed;
+        }
+        if (IsKeyPressed(KEY_TAB)) {
             paused = !paused;
             if (paused == TRUE) {
                 gameState = STATE_PAUSED;
@@ -275,7 +260,7 @@ void updateGameState() {
         }
         /* NOT colliding in the y dimension; move the piece down one.*/
         else {
-            y = y + wishY;   
+            y = y + wishY; 
         }
         // Write to the fallingBoard
         if (wishRotate == TRUE || wishX != 0 || wishY != 0) {
@@ -379,9 +364,37 @@ void drawNextPiece(int (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE],float scale) {
     for (int i = 0; i < SHAPE_SIZE; i++) {
             for (int j = 0; j < SHAPE_SIZE; j++) {
                 if (nextPiece[0][i][j] > 0)
-                    drawBlock(12 + i,7 + j,nextPiece[0][i][j],scale);
+                    drawBlock(13 + j,5 + i,nextPiece[0][i][j],scale);
             }
         }
+}
+
+/**
+* FUNCTION: playClearAnimation()
+* DESCRIPTION: Plays the clear animation
+*/ 
+void playClearAnimation(int *color) {
+    if ((animationFrameCount % 10) == 0) {
+        if (*color == 8) {
+            for (int i = 0; rowsToClearArr[i] != -1 && i < 4; i++) {
+                toggleRowColor(fallingBoard,rowsToClearArr[i],*color);
+            }
+            *color = 0;
+        } else {
+            for (int i = 0; rowsToClearArr[i] != -1 && i < 4; i++) {
+               toggleRowColor(fallingBoard,rowsToClearArr[i],*color);
+            }
+           *color = 8;
+        }   
+    }
+    if (animationFrameCount > 50) {
+        clearLineRows(landedBoard,rowsToClearArr);
+        for (int i = 0; i < 4; i++) {
+            rowsToClearArr[i] = -1;
+        }
+        animationFrameCount = 0;
+        gameState = STATE_MAIN_GAME_LOOP;
+    }
 }
 
 
