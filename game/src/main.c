@@ -24,6 +24,9 @@ void drawBoard(int (*board)[ROWS],float scale);
 void getNewPiece(int (*piece)[SHAPE_SIZE][SHAPE_SIZE]);
 void drawNextPiece(int (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE],float scale);
 void drawGameState();
+void drawScore(int score,float scale);
+int doScoreCalculations();
+void addScore(int *newScore);
 
 void playClearAnimation(int *color);
 
@@ -35,6 +38,8 @@ int (*currentPiece)[SHAPE_SIZE][SHAPE_SIZE];
 int (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE];
 int x = START_X;
 int y = START_Y;
+int score = 0;
+int level = 40;
 
 // input related globals 
 int wishX, wishY, wishRotate;
@@ -69,7 +74,7 @@ RenderTexture2D target;
 
 int main(void)
 {
-
+    
     const int windowWidth = 820;
     const int windowHeight = 760;
     landedBoard = calloc(4,sizeof(int[ROWS][COLUMNS]));
@@ -104,6 +109,10 @@ int main(void)
         }
     }  
     #endif
+
+    /* Our "new score" when a line is cleared. We gradually tally up the score 
+    using addScore() rather than instantly adding it. */
+    int newScore = 0;
     
     // Main game loop
     while (!WindowShouldClose())
@@ -125,16 +134,28 @@ int main(void)
                 if (animationFrameCount > 1) {
                         gameState = STATE_MAIN_GAME_LOOP;
                         animationFrameCount = 0;
+                        newScore = 2 + score;
                 }
                 break;
             case STATE_ANIMATION_CLEAR_BLOCKS:
                 animationFrameCount++;
                 playClearAnimation(&clearColor);
+                // add our score.
+                if (animationFrameCount == 0) {
+                    newScore = doScoreCalculations() + score; 
+                    for (int i = 0; i < 4; i++) {
+                        rowsToClearArr[i] = -1;
+                    }
+                }
                 break;
             case STATE_PAUSED:
                 break;
         }
-       
+        // Add the score gradually every frame so long as there is still score to add.
+        if (newScore > 0) {
+            addScore(&newScore);    
+        }
+        
         drawGameState();
         if (checkLineClears(landedBoard,rowsToClearArr) == TRUE && gameState != STATE_ANIMATION_CLEAR_BLOCKS) {
             gameState = STATE_ANIMATION_CLEAR_BLOCKS;
@@ -319,7 +340,7 @@ void drawGameState() {
                            (Vector2){ 0.0f, 0.0f }, 
                            0.0f, 
                            WHITE);
-        
+        drawScore(score,scale);
         drawBoard(landedBoard,scale);
         drawBoard(fallingBoard,scale);
         drawNextPiece(nextPiece,scale);
@@ -357,6 +378,30 @@ void drawBlock(int x, int y, int color,float scale) {
 }
 
 /**
+* FUNCTION: drawScore() 
+* DESCRIPTION: Draws the current score to the screen.
+*/ 
+void drawScore(int score,float scale) {
+    int digit = 0;
+    int digitArr[6] = {0,0,0,0,0,0};
+    int index = 5;
+    while(score)
+    {
+        digitArr[index] = score % 10;
+        score /= 10;
+        index--;
+    }
+    for (int i = 0; i < 6; i++) {
+        DrawTexturePro(digitsSpriteSheet, (Rectangle){ 0.0f, (digitArr[i])*44.5f, 32,42 }, 
+                           (Rectangle){ (GetScreenWidth() - ((float)SCREEN_W*scale))*0.5f, (GetScreenHeight() - ((float)SCREEN_H*scale))*0.5f,
+                           (float)SCREEN_W*scale*0.04, (float)SCREEN_H*scale*0.045 }, 
+                           (Vector2){ -1*(570.0f + 32*i)*scale, -1*100.0f*scale }, 
+                           0.0f, 
+                           WHITE);
+    }  
+}
+
+/**
 * FUNCTION: drawNextPiece()
 * DESCRIPTION: Draws the next piece to the screen. 
 */ 
@@ -370,11 +415,82 @@ void drawNextPiece(int (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE],float scale) {
 }
 
 /**
+* FUNCTION: doScoreCalculations() 
+* DESCRIPTION: returns the score to add based on the number of lines the player has cleared.
+*/ 
+int doScoreCalculations() {
+    int lines = 0;
+    int scoreToAdd;
+    // Add up our lines
+    for (int i = 0; rowsToClearArr[i] != -1 && i < 4; i++) {
+        lines = i + 1;
+    }
+    switch (lines) {
+        case 1:
+            scoreToAdd = (40 * (level + 1));
+            break;
+        case 2:
+            scoreToAdd = (100 * (level + 1));
+            break;
+        case 3:
+            scoreToAdd = (300 * (level + 1));
+            break;
+        case 4:
+            scoreToAdd = (1200 * (level + 1));
+            printf("Score to add: %d\n",scoreToAdd);
+            break;
+    }
+    
+    return scoreToAdd;
+    
+    
+}
+
+/**
+* FUNCTION: addScore(int* newScore) 
+* DESCRIPTION: Gradually adds up our score untill we get to our desired new score value.
+*/ 
+void addScore(int *newScore) {
+    if (score <= (*newScore)) {
+        /* scale the speed at which we tally up our points based on the value of newScore.
+        *  We do need to ensure that the time it takes to tally up score is not greater than the time it
+        *  takes to complete the line clearing animation, because the player could overwrite newScore while we
+        *  are tallying up the points if it is not fast enough. */  
+        if (*newScore < 10) {
+            score += 1;
+        }
+        else if (*newScore <= 400) {
+            score += 6;
+        }
+        else if (*newScore <= 1200) {
+            score += 24;
+        }
+        else if (*newScore < 2000) {
+            score += 50;
+        }
+        else if (*newScore < 10000) {
+            score += 100;
+        }
+        else {
+            // if the score we want to add is over 10,000, just add the score instantly.
+            score = *newScore;
+        }
+    }
+    else {
+        score = (*newScore);
+        (*newScore) = 0;
+    }
+}
+
+/**
 * FUNCTION: playClearAnimation()
 * DESCRIPTION: Plays the clear animation
 */ 
 void playClearAnimation(int *color) {
+    // every 10 frames we should either change all lines to clear white,
+    // or change them to 0 which will show the landedBoard. 
     if ((animationFrameCount % 10) == 0) {
+        // Change the color of the lines to clear
         if (*color == 8) {
             for (int i = 0; rowsToClearArr[i] != -1 && i < 4; i++) {
                 toggleRowColor(fallingBoard,rowsToClearArr[i],*color);
@@ -387,11 +503,9 @@ void playClearAnimation(int *color) {
            *color = 8;
         }   
     }
+    // Animation is done after 50 frames, return to the main game loop.
     if (animationFrameCount > 50) {
         clearLineRows(landedBoard,rowsToClearArr);
-        for (int i = 0; i < 4; i++) {
-            rowsToClearArr[i] = -1;
-        }
         animationFrameCount = 0;
         gameState = STATE_MAIN_GAME_LOOP;
     }
