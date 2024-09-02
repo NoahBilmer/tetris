@@ -61,7 +61,7 @@ int newPiece = TRUE;
 int rotation = 0;
 int newRotation = 0;
 int animationFrameCount = 0;
-int gameState = STATE_MAIN_GAME_LOOP;
+int gameState = MAIN_GAME_LOOP;
 int rowsToClearArr[4] = {-1,-1,-1,-1};
 // used to copy each row for the line clearing animation
 int rowCpyArr[4][COLUMNS];
@@ -129,21 +129,21 @@ int main(void)
         frameCount++;
         
         switch (gameState) {
-            case STATE_MAIN_GAME_LOOP:
+            case MAIN_GAME_LOOP:
                 updateGameState();
                 break;
-            case STATE_ANIMATION_MUZZLE_FLASH:
+            case ANIMATION_MUZZLE_FLASH:
                 animationFrameCount++;
                 clearBoard(fallingBoard);
                 writeBlocks(x,y,currentPiece[rotation],fallingBoard,TRUE);
                 if (animationFrameCount > 1) {
-                        gameState = STATE_MAIN_GAME_LOOP;
+                        gameState = MAIN_GAME_LOOP;
                         animationFrameCount = 0;
                         scoreToAdd = 2;
                         newScore = scoreToAdd + score;
                 }
                 break;
-            case STATE_ANIMATION_CLEAR_BLOCKS:
+            case ANIMATION_CLEAR_BLOCKS:
                 animationFrameCount++;
                 playClearAnimation(&clearColor);
                 // add our score.
@@ -161,7 +161,19 @@ int main(void)
                     }
                 }
                 break;
-            case STATE_PAUSED:
+            
+            case GAME_OVER:
+                clearBoard(fallingBoard);
+                clearBoard(landedBoard);
+                animationFrameCount++;
+                if (animationFrameCount > 60) {
+                    score = 0;
+                    newScore = 0;
+                    animationFrameCount = 0;
+                    gameState = MAIN_GAME_LOOP; 
+                }
+                break;
+            case PAUSED:
                 break;
         }
         // Add the score gradually every frame so long as there is still score to add.
@@ -170,8 +182,8 @@ int main(void)
         }
         
         drawGameState();
-        if (checkLineClears(landedBoard,rowsToClearArr) == TRUE && gameState != STATE_ANIMATION_CLEAR_BLOCKS) {
-            gameState = STATE_ANIMATION_CLEAR_BLOCKS;
+        if (checkLineClears(landedBoard,rowsToClearArr) == TRUE && gameState != ANIMATION_CLEAR_BLOCKS) {
+            gameState = ANIMATION_CLEAR_BLOCKS;
         }
         
         
@@ -243,10 +255,10 @@ void getInput(int* wishX, int* wishY, int*wishRotate, int *moveFrameCount) {
         if (IsKeyPressed(KEY_TAB)) {
             paused = !paused;
             if (paused == TRUE) {
-                gameState = STATE_PAUSED;
+                gameState = PAUSED;
             }
             else {
-                gameState = STATE_MAIN_GAME_LOOP;
+                gameState = MAIN_GAME_LOOP;
             }
         }
 }
@@ -265,7 +277,6 @@ void updateGameState() {
         // Create a new Piece
         if (newPiece) {
             clearBoard(fallingBoard);
-            writeBlocks(x,y,currentPiece[rotation],landedBoard,FALSE);
             x = START_X;
             y = START_Y;
             wishRotate = FALSE;
@@ -274,6 +285,11 @@ void updateGameState() {
             rotation = newRotation;
             memcpy(currentPiece,nextPiece,sizeof(int[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
             getNewPiece(nextPiece);
+            // check if we're colliding at the start x/y; this is the game over condition 
+            if (colliding(x,y,currentPiece[newRotation],landedBoard)) {
+                gameState = GAME_OVER;
+                return;
+            }
         }
                 
         /*** Do all piece translations and or transformations ***/
@@ -289,8 +305,9 @@ void updateGameState() {
         if (colliding(x,y + wishY,currentPiece[rotation],landedBoard) > 0) {
             // Place this piece
             // create a new piece next iteration
-            gameState = STATE_ANIMATION_MUZZLE_FLASH;
+            gameState = ANIMATION_MUZZLE_FLASH;
             newPiece = TRUE; 
+            writeBlocks(x,y,currentPiece[rotation],landedBoard,FALSE);
         }
         /* NOT colliding in the y dimension; move the piece down one.*/
         else {
@@ -541,7 +558,7 @@ void playClearAnimation(int *color) {
     if (animationFrameCount > 50) {
         clearLineRows(landedBoard,rowsToClearArr);
         animationFrameCount = 0;
-        gameState = STATE_MAIN_GAME_LOOP;
+        gameState = MAIN_GAME_LOOP;
     }
 }
 
