@@ -27,6 +27,26 @@
 #define STATE_PAUSED 4
 
 #define SPEED_LV_0 48
+#define LV_SPEED_ARR_LENGTH 30
+
+static int levelSpeedArr[LV_SPEED_ARR_LENGTH] = {
+    48,     // lv 0
+    43,     // lv 1
+    38,     // lv 2 
+    33,     // lv 3
+    28,     // lv 4
+    23,     // lv 5
+    18,     // lv 6
+    13,     // lv 7
+    8,      // lv 8
+    6,      // lv 9
+    5,5,5,  // lv 10-12
+    4,4,4,  // lv 13-15
+    3,3,3,  // lv 16-18
+    2,2,2,2,2,2,2,2,2,2, // lv 19-28
+    1       // lv 29
+    
+};
 
 // Tetris Shapes 
 static int i_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {

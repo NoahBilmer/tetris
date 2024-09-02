@@ -26,9 +26,12 @@ void drawNextPiece(int (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE],float scale);
 void drawGameState();
 void drawScore(int score,float scale);
 int doScoreCalculations();
-void addScore(int *newScore);
+void drawLevel(int level,float scale);
+void addScore(int *scoreToAdd,int newScore);
 
 void playClearAnimation(int *color);
+
+
 
 // Globals
 int (*fallingBoard)[ROWS];
@@ -39,7 +42,7 @@ int (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE];
 int x = START_X;
 int y = START_Y;
 int score = 0;
-int level = 40;
+int level = 12;
 
 // input related globals 
 int wishX, wishY, wishRotate;
@@ -49,7 +52,7 @@ int paused = 0;
 int moveCooldown = 0;
 /* speed determines the number of frames it takes to move
  * the piece down one y coordinate. */
-int baseSpeed = SPEED_LV_0;
+int baseSpeed = 0;
 int fastFallSpeed = 1;
 float speed = SPEED_LV_0;
 int frameCount = 0;
@@ -67,6 +70,7 @@ int rowColor = 0;
 int swap = FALSE;
 // used for clearing animation
 int clearColor = 0;
+int scoreToAdd = 0;
 
 
 
@@ -74,7 +78,6 @@ RenderTexture2D target;
 
 int main(void)
 {
-    
     const int windowWidth = 820;
     const int windowHeight = 760;
     landedBoard = calloc(4,sizeof(int[ROWS][COLUMNS]));
@@ -114,6 +117,8 @@ int main(void)
     using addScore() rather than instantly adding it. */
     int newScore = 0;
     
+    baseSpeed = levelSpeedArr[level];
+
     // Main game loop
     while (!WindowShouldClose())
     {
@@ -134,7 +139,8 @@ int main(void)
                 if (animationFrameCount > 1) {
                         gameState = STATE_MAIN_GAME_LOOP;
                         animationFrameCount = 0;
-                        newScore = 2 + score;
+                        scoreToAdd = 2;
+                        newScore = scoreToAdd + score;
                 }
                 break;
             case STATE_ANIMATION_CLEAR_BLOCKS:
@@ -142,9 +148,16 @@ int main(void)
                 playClearAnimation(&clearColor);
                 // add our score.
                 if (animationFrameCount == 0) {
-                    newScore = doScoreCalculations() + score; 
+                    scoreToAdd = doScoreCalculations();
+                    newScore = scoreToAdd + score;
                     for (int i = 0; i < 4; i++) {
+                        if (rowsToClearArr[i] != -1)
+                            lines++;
                         rowsToClearArr[i] = -1;
+                    }
+                    if (lines % 10 == 0) {
+                        level++;
+                        baseSpeed = levelSpeedArr[level];
                     }
                 }
                 break;
@@ -153,7 +166,7 @@ int main(void)
         }
         // Add the score gradually every frame so long as there is still score to add.
         if (newScore > 0) {
-            addScore(&newScore);    
+            addScore(&newScore,scoreToAdd);    
         }
         
         drawGameState();
@@ -341,6 +354,7 @@ void drawGameState() {
                            0.0f, 
                            WHITE);
         drawScore(score,scale);
+        drawLevel(level,scale);
         drawBoard(landedBoard,scale);
         drawBoard(fallingBoard,scale);
         drawNextPiece(nextPiece,scale);
@@ -401,6 +415,25 @@ void drawScore(int score,float scale) {
     }  
 }
 
+void drawLevel(int level,float scale) {
+    int digitArr[2] = {0,0};
+    int index = 1;
+    while(level)
+    {
+        digitArr[index] = level % 10;
+        level /= 10;
+        index--;
+    }
+    for (int i = 0; i < 2; i++) {
+        DrawTexturePro(digitsSpriteSheet, (Rectangle){ 0.0f, (digitArr[i]*44.5f), 32,42 }, 
+                           (Rectangle){ (GetScreenWidth() - ((float)SCREEN_W*scale))*0.5f, (GetScreenHeight() - ((float)SCREEN_H*scale))*0.5f,
+                           (float)SCREEN_W*scale*0.04, (float)SCREEN_H*scale*0.045 }, 
+                           (Vector2){ -1*(60.0f + 32*i)*scale, -1*120.0f*scale }, 
+                           0.0f, 
+                           WHITE);
+    }
+}
+
 /**
 * FUNCTION: drawNextPiece()
 * DESCRIPTION: Draws the next piece to the screen. 
@@ -437,9 +470,9 @@ int doScoreCalculations() {
             break;
         case 4:
             scoreToAdd = (1200 * (level + 1));
-            printf("Score to add: %d\n",scoreToAdd);
             break;
     }
+     printf("Score to add: %d\n",scoreToAdd);
     
     return scoreToAdd;
     
@@ -450,35 +483,36 @@ int doScoreCalculations() {
 * FUNCTION: addScore(int* newScore) 
 * DESCRIPTION: Gradually adds up our score untill we get to our desired new score value.
 */ 
-void addScore(int *newScore) {
-    if (score <= (*newScore)) {
+void addScore(int *newScore,int scoreToAdd) {
+    if (score <= *newScore) {
         /* scale the speed at which we tally up our points based on the value of newScore.
         *  We do need to ensure that the time it takes to tally up score is not greater than the time it
         *  takes to complete the line clearing animation, because the player could overwrite newScore while we
         *  are tallying up the points if it is not fast enough. */  
-        if (*newScore < 10) {
+        if (scoreToAdd < 10) {
             score += 1;
         }
-        else if (*newScore <= 400) {
+        else if (scoreToAdd <= 400) {
             score += 6;
         }
-        else if (*newScore <= 1200) {
-            score += 24;
+        else if (scoreToAdd <= 1200) {
+            score += 32;
         }
-        else if (*newScore < 2000) {
-            score += 50;
-        }
-        else if (*newScore < 10000) {
+        else if (scoreToAdd < 2000) {
             score += 100;
+        }
+        else if (scoreToAdd < 10000) {
+            score += 1000;
         }
         else {
             // if the score we want to add is over 10,000, just add the score instantly.
             score = *newScore;
+            *newScore = 0;
         }
     }
     else {
-        score = (*newScore);
-        (*newScore) = 0;
+       score = *newScore;
+       *newScore = 0;
     }
 }
 
