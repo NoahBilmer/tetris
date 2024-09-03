@@ -5,10 +5,10 @@
 #include "raylib.h"
 #include "headers/board.h"
 #include "headers/globals.h"
-#include "raymath.h"        // Required for: Vector2Clamp()
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <stdint.h>
 
 #define MAX(a, b) ((a)>(b)? (a) : (b))
 #define MIN(a, b) ((a)<(b)? (a) : (b))
@@ -20,9 +20,9 @@ Texture2D digitsSpriteSheet;
 void updateGameState();
 void getInput(int* wishX, int* wishY, int* wishRotate, int *moveFrameCount);
 void drawBlock(int x, int y, int color, float scale);
-void drawBoard(int (*board)[ROWS],float scale);
-void getNewPiece(int (*piece)[SHAPE_SIZE][SHAPE_SIZE]);
-void drawNextPiece(int (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE],float scale);
+void drawBoard(uint8_t (*board)[ROWS],float scale);
+void getNewPiece(uint8_t (*piece)[SHAPE_SIZE][SHAPE_SIZE]);
+void drawNextPiece(uint8_t (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE],float scale);
 void drawGameState();
 void drawScore(int score,float scale);
 int doScoreCalculations();
@@ -34,43 +34,46 @@ void playClearAnimation(int *color);
 
 
 // Globals
-int (*fallingBoard)[ROWS];
-int (*landedBoard)[ROWS];
-int (*landedBoardCpy)[ROWS];
-int (*currentPiece)[SHAPE_SIZE][SHAPE_SIZE];
-int (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE];
-int x = START_X;
-int y = START_Y;
+uint8_t (*fallingBoard)[ROWS];
+uint8_t (*landedBoard)[ROWS];
+uint8_t (*landedBoardCpy)[ROWS];
+uint8_t (*currentPiece)[SHAPE_SIZE][SHAPE_SIZE];
+uint8_t (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE];
+int8_t x = START_X;
+int8_t y = START_Y;
 int score = 0;
-int level = 12;
+uint8_t level = 12;
 
 // input related globals 
 int wishX, wishY, wishRotate;
 
-int paused = 0;
+bool paused = 0;
 
 int moveCooldown = 0;
 /* speed determines the number of frames it takes to move
  * the piece down one y coordinate. */
-int baseSpeed = 0;
-int fastFallSpeed = 1;
+uint8_t baseSpeed = 0;
+uint8_t fastFallSpeed = 1;
 float speed = SPEED_LV_0;
 int frameCount = 0;
 int moveFrameCount = 0;
-int newPiece = TRUE;
-int rotation = 0;
-int newRotation = 0;
+bool newPiece = TRUE;
+uint8_t rotation = 0;
+uint8_t newRotation = 0;
 int animationFrameCount = 0;
-int gameState = MAIN_GAME_LOOP;
+uint8_t gameState = MAIN_GAME_LOOP;
+uint8_t gameStateCpy; // used for pausing mechanisim
 int rowsToClearArr[4] = {-1,-1,-1,-1};
 // used to copy each row for the line clearing animation
 int rowCpyArr[4][COLUMNS];
-int lines = 0;
-int rowColor = 0;
-int swap = FALSE;
+uint8_t lines = 0;
+uint8_t rowColor = 0;
+bool swap = FALSE;
 // used for clearing animation
 int clearColor = 0;
-int scoreToAdd = 0;
+uint8_t scoreToAdd = 0;
+
+float scale;
 
 
 
@@ -118,7 +121,8 @@ int main(void)
     int newScore = 0;
     
     baseSpeed = levelSpeedArr[level];
-
+    uint8_t row, col = 0;
+    uint8_t  tempColorVar = 1;
     // Main game loop
     while (!WindowShouldClose())
     {
@@ -129,6 +133,8 @@ int main(void)
         frameCount++;
         
         switch (gameState) {
+            case PAUSED:
+                break;
             case MAIN_GAME_LOOP:
                 updateGameState();
                 break;
@@ -163,17 +169,37 @@ int main(void)
                 break;
             
             case GAME_OVER:
-                clearBoard(fallingBoard);
-                clearBoard(landedBoard);
                 animationFrameCount++;
-                if (animationFrameCount > 60) {
+                if (animationFrameCount > 140) {
+                    clearBoard(fallingBoard);
+                    clearBoard(landedBoard);
+                    row = 0;
+                    col = 0;
                     score = 0;
                     newScore = 0;
                     animationFrameCount = 0;
                     gameState = MAIN_GAME_LOOP; 
+                } else {
+                    if (row < ROWS) {
+                        if (tempColorVar > 7) {
+                            tempColorVar = 1;
+                        }
+                        if (fallingBoard[row + 3][col] == 0) {
+                            fallingBoard[row + 3][col] = tempColorVar;
+                        }
+                        if (fallingBoard[(ROWS - 1) - row][(COLUMNS - 1) - col] == 0) {
+                            fallingBoard[(ROWS - 1) - row][(COLUMNS - 1) - col]  = tempColorVar;   
+                        }
+                        tempColorVar++;
+                        col++;
+                        if (col == COLUMNS) {
+                            row++;
+                            col = 0;
+                        }
+                    } 
                 }
                 break;
-            case PAUSED:
+            case TITLE_SCREEN:
                 break;
         }
         // Add the score gradually every frame so long as there is still score to add.
@@ -181,10 +207,18 @@ int main(void)
             addScore(&newScore,scoreToAdd);    
         }
         
-        drawGameState();
+       
         if (checkLineClears(landedBoard,rowsToClearArr) == TRUE && gameState != ANIMATION_CLEAR_BLOCKS) {
             gameState = ANIMATION_CLEAR_BLOCKS;
         }
+
+        // Render the graphics
+        BeginDrawing();
+        // Compute required framebuffe scaling
+        scale = MIN(((float)GetScreenWidth())/SCREEN_W, ((float)GetScreenHeight())/SCREEN_H);
+        drawGameState();
+        //DrawRectangleGradientH(0,0,windowWidth*scale,windowHeight*scale, GRAY, BLUE);
+        EndDrawing();
         
         
     }
@@ -255,10 +289,11 @@ void getInput(int* wishX, int* wishY, int*wishRotate, int *moveFrameCount) {
         if (IsKeyPressed(KEY_TAB)) {
             paused = !paused;
             if (paused == TRUE) {
+                gameStateCpy = gameState;
                 gameState = PAUSED;
             }
             else {
-                gameState = MAIN_GAME_LOOP;
+                gameState = gameStateCpy;
             }
         }
 }
@@ -324,9 +359,9 @@ void updateGameState() {
 * FUNCTION: getNewPiece() 
 * DESCRIPTION: Randomly selects a new piece to copy to the provided memory address.
 */ 
-void getNewPiece(int (*piece)[SHAPE_SIZE][SHAPE_SIZE]) {
-    int pieceIndex = (rand() % 7) + 1;
-    int (*newPiece)[SHAPE_SIZE][SHAPE_SIZE];
+void getNewPiece(uint8_t (*piece)[SHAPE_SIZE][SHAPE_SIZE]) {
+    uint8_t pieceIndex = (rand() % 7) + 1;
+    uint8_t (*newPiece)[SHAPE_SIZE][SHAPE_SIZE];
     switch (pieceIndex) {
         case 1:
             newPiece = i_block;
@@ -351,7 +386,7 @@ void getNewPiece(int (*piece)[SHAPE_SIZE][SHAPE_SIZE]) {
             break;
     }
     // Copy the piece
-    memcpy(piece,newPiece,sizeof(int[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
+    memcpy(piece,newPiece,sizeof(uint8_t[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
 }
 
 /**
@@ -359,9 +394,6 @@ void getNewPiece(int (*piece)[SHAPE_SIZE][SHAPE_SIZE]) {
 * DESCRIPTION: Draws the state of the game on this current frame. 
 */ 
 void drawGameState() {
-    // Compute required framebuffer scaling
-    float scale = MIN(((float)GetScreenWidth())/SCREEN_W, ((float)GetScreenHeight())/SCREEN_H);
-    BeginDrawing();
             ClearBackground(BLACK);     // Clear screen background
             // Draw the UI texture to screen, properly scaled
             DrawTexturePro(gameboardUI, (Rectangle){ 0.0f, 0.0f, (float)target.texture.width, (float)target.texture.height }, 
@@ -375,14 +407,17 @@ void drawGameState() {
         drawBoard(landedBoard,scale);
         drawBoard(fallingBoard,scale);
         drawNextPiece(nextPiece,scale);
-    EndDrawing();
+}
+
+void drawTitleScreen() {
+
 }
 
 /**
 * FUNCTION: drawBoard() 
 * DESCRIPTION: Draws the provided board to the screen.
 */ 
-void drawBoard(int (*board)[ROWS],float scale) {
+void drawBoard(uint8_t (*board)[ROWS],float scale) {
     for (int row = 3; row < ROWS; row++) {
         for (int col = 0; col < COLUMNS; col++) {
             if (board[row][col] != 0)
@@ -455,7 +490,7 @@ void drawLevel(int level,float scale) {
 * FUNCTION: drawNextPiece()
 * DESCRIPTION: Draws the next piece to the screen. 
 */ 
-void drawNextPiece(int (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE],float scale) { 
+void drawNextPiece(uint8_t (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE],float scale) { 
     for (int i = 0; i < SHAPE_SIZE; i++) {
             for (int j = 0; j < SHAPE_SIZE; j++) {
                 if (nextPiece[0][i][j] > 0)

@@ -10,7 +10,7 @@
 *          false if the piece is colliding with another piece
 *          or will have non-zero values outside the board
 */
-int writeBlocks(int x, int y, int block[][SHAPE_SIZE], int board[][ROWS], int flashPiece) {
+int writeBlocks(int x, int y, uint8_t block[][SHAPE_SIZE], uint8_t board[][ROWS], int flashPiece) {
     int offsetRow,offsetCol;
     // Loop through 
     for (int row = 0; row < SHAPE_SIZE; row++) {
@@ -41,7 +41,7 @@ int writeBlocks(int x, int y, int block[][SHAPE_SIZE], int board[][ROWS], int fl
 *         2 if being placed outside the game board.
 *         0/false if no collisions.
 */ 
-int colliding(int x, int y, int block[][SHAPE_SIZE], int board[][ROWS]) {
+int colliding(int x, int y, uint8_t block[][SHAPE_SIZE], uint8_t board[][ROWS]) {
     int offsetRow,offsetCol;
     for (int row = 0; row < SHAPE_SIZE; row++) {
         for (int col = 0; col < SHAPE_SIZE; col++) {
@@ -64,7 +64,7 @@ int colliding(int x, int y, int block[][SHAPE_SIZE], int board[][ROWS]) {
 * FUNCTION: clearBoard() 
 * DESCRIPTION: Clears the specified board.
 */ 
-void clearBoard(int board[][ROWS]) {
+void clearBoard(uint8_t board[][ROWS]) {
     for (int row = 0; row < ROWS; row++) {
         for (int col = 0; col < COLUMNS; col++) {
             board[row][col] = 0;
@@ -79,7 +79,7 @@ void clearBoard(int board[][ROWS]) {
 * RETURN: TRUE if there is one or moe lines to clear.
 *         FALSE if no full rows are found.
 */ 
-int checkLineClears(int board[][ROWS], int rowToClearArr[4]) {
+int checkLineClears(uint8_t board[][ROWS], int rowToClearArr[4]) {
     int count = 0; 
     int lineCount = 0;
     for (int row = 0; row < ROWS; row++) {
@@ -104,7 +104,7 @@ int checkLineClears(int board[][ROWS], int rowToClearArr[4]) {
 * FUNCTION: toggleRowColor() 
 * DESCRIPTION: Toggles the color of an entire row.
 */ 
-void toggleRowColor(int board[][ROWS], int row, int color) {
+void toggleRowColor(uint8_t board[][ROWS], int row, int color) {
         for (int col = 0; col < COLUMNS; col++) {
             board[row][col] = color;
         }
@@ -115,7 +115,7 @@ void toggleRowColor(int board[][ROWS], int row, int color) {
 * FUNCTION: clearBoard() 
 * DESCRIPTION: Clears all rows on the board at the Y positions specified in rowsToClear.
 */ 
-void clearLineRows(int board[][ROWS],int rowsToClear[4]) {
+void clearLineRows(uint8_t board[][ROWS], int rowsToClear[4]) {
     int count = 0;
     for (count = 0; (count < 4); count++) {
         if (rowsToClear[count] == -1) {

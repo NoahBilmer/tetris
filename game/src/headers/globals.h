@@ -1,5 +1,8 @@
 #ifndef GLOBALS_H
 #define GLOBALS_H
+
+#include <stdint.h>
+
 #define DEBUG 1
 #define COLUMNS 10
 #define ROWS 23
@@ -25,12 +28,13 @@ enum State {
     ANIMATION_CLEAR_BLOCKS,
     PAUSED,
     GAME_OVER,
+    TITLE_SCREEN,
 };
 
 #define SPEED_LV_0 48
 #define LV_SPEED_ARR_LENGTH 30
 
-static int levelSpeedArr[LV_SPEED_ARR_LENGTH] = {
+static uint8_t levelSpeedArr[LV_SPEED_ARR_LENGTH] = {
     48,     // lv 0
     43,     // lv 1
     38,     // lv 2 
@@ -50,7 +54,7 @@ static int levelSpeedArr[LV_SPEED_ARR_LENGTH] = {
 };
 
 // Tetris Shapes 
-static int i_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
+static uint8_t i_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
     {
         {0,0,0,0},
         {0,0,0,0},
@@ -77,7 +81,7 @@ static int i_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
     }
 };
 
-static int o_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
+static uint8_t o_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
     {
         {0,0,0,0},
         {0,0,0,0},
@@ -104,7 +108,7 @@ static int o_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
     } 
 };  
 
-static int j_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
+static uint8_t j_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
     {
         {0,0,0,0},
         {0,0,0,0},
@@ -131,7 +135,7 @@ static int j_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
     } 
 };
 
-static int l_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
+static uint8_t l_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
     {
         {0,0,0,0},
         {0,0,0,0},
@@ -158,7 +162,7 @@ static int l_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
     } 
 };
 
-static int s_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
+static uint8_t s_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
     {
         {0,0,0,0},
         {0,0,0,0},
@@ -185,7 +189,7 @@ static int s_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
     } 
 };
 
-static int z_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
+static uint8_t z_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
     {
         {0,0,0,0},
         {0,0,0,0},
@@ -212,7 +216,7 @@ static int z_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
     } 
 };
 
-static int t_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
+static uint8_t t_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
     {
         {0,0,0,0},
         {0,0,0,0},
