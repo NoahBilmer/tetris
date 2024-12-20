@@ -4,45 +4,41 @@
 #include <stdlib.h>
 #include "raylib.h"
 #include "headers/board.h"
+#include "headers/draw.h"
 #include "headers/globals.h"
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include <stdint.h>
 
-#define MAX(a, b) ((a)>(b)? (a) : (b))
-#define MIN(a, b) ((a)<(b)? (a) : (b))
+void updateGameState();
+void getInput(int* wishX, int* wishY, int* wishRotate, int *moveFrameCount);
+void getNewPiece(uint8_t (*piece)[SHAPE_SIZE][SHAPE_SIZE]);
+int doScoreCalculations();
+void addScore(int *scoreToAdd,int newScore);
+
+void renderGraphics(enum State screen);
+void playClearAnimation(int *color);
+
+// Globals
+uint8_t (*landedBoardCpy)[ROWS];
+uint8_t (*currentPiece)[SHAPE_SIZE][SHAPE_SIZE];
+int8_t x = START_X;
+int8_t y = START_Y;
+uint16_t score = 0;
+uint8_t level = 7;
+
+uint8_t (*fallingBoard)[ROWS];
+uint8_t (*landedBoard)[ROWS];
+uint8_t (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE];
 
 Texture2D gameboardUI;
 Texture2D blocksSpriteSheet;
 Texture2D digitsSpriteSheet;
-
-void updateGameState();
-void getInput(int* wishX, int* wishY, int* wishRotate, int *moveFrameCount);
-void drawBlock(int x, int y, int color, float scale);
-void drawBoard(uint8_t (*board)[ROWS],float scale);
-void getNewPiece(uint8_t (*piece)[SHAPE_SIZE][SHAPE_SIZE]);
-void drawNextPiece(uint8_t (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE],float scale);
-void drawGameState();
-void drawScore(int score,float scale);
-int doScoreCalculations();
-void drawLevel(int level,float scale);
-void addScore(int *scoreToAdd,int newScore);
-
-void playClearAnimation(int *color);
-
-
-
-// Globals
-uint8_t (*fallingBoard)[ROWS];
-uint8_t (*landedBoard)[ROWS];
-uint8_t (*landedBoardCpy)[ROWS];
-uint8_t (*currentPiece)[SHAPE_SIZE][SHAPE_SIZE];
-uint8_t (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE];
-int8_t x = START_X;
-int8_t y = START_Y;
-int score = 0;
-uint8_t level = 12;
+Texture2D backgroundColor;
+Texture2D titleText;
+Texture2D githubLink;
+Texture2D levelSelectText;
 
 // input related globals 
 int wishX, wishY, wishRotate;
@@ -61,8 +57,8 @@ bool newPiece = TRUE;
 uint8_t rotation = 0;
 uint8_t newRotation = 0;
 int animationFrameCount = 0;
-uint8_t gameState = MAIN_GAME_LOOP;
-uint8_t gameStateCpy; // used for pausing mechanisim
+State gameState = MAIN_GAME_LOOP;
+uint8_t gameStateCpy; // used for pausing mechanism
 int rowsToClearArr[4] = {-1,-1,-1,-1};
 // used to copy each row for the line clearing animation
 int rowCpyArr[4][COLUMNS];
@@ -75,9 +71,8 @@ uint8_t scoreToAdd = 0;
 
 float scale;
 
-
-
 RenderTexture2D target;
+RenderTexture2D digitsTarget; 
 
 int main(void)
 {
@@ -100,10 +95,15 @@ int main(void)
     gameboardUI = LoadTexture("resources/tetris-ui.png");
     blocksSpriteSheet = LoadTexture("resources/blocks.png");
     digitsSpriteSheet = LoadTexture("resources/digits.png");
+    backgroundColor = LoadTexture("resources/background-color.png");
+    titleText = LoadTexture("resources/title.png");
+    githubLink = LoadTexture("resources/github-link.png");
+    levelSelectText = LoadTexture("resources/select-level.png");
     SetWindowMinSize(320, 240);
     
     // Render texture initialization, used to hold the rendering result so we can easily resize it
-    target = LoadRenderTexture(SCREEN_W, SCREEN_H);
+    target = LoadRenderTexture(SCREEN_W, SCREEN_H); 
+    digitsTarget = LoadRenderTexture(digitsSpriteSheet.width, blocksSpriteSheet.height);
     SetTextureFilter(target.texture, TEXTURE_FILTER_BILINEAR);  // Texture scale filter to use
 
     SetTargetFPS(60);  // Set our game to run at 60 frames-per-second
@@ -143,10 +143,10 @@ int main(void)
                 clearBoard(fallingBoard);
                 writeBlocks(x,y,currentPiece[rotation],fallingBoard,TRUE);
                 if (animationFrameCount > 1) {
-                        gameState = MAIN_GAME_LOOP;
-                        animationFrameCount = 0;
-                        scoreToAdd = 2;
-                        newScore = scoreToAdd + score;
+                    gameState = MAIN_GAME_LOOP;
+                    animationFrameCount = 0;
+                    scoreToAdd = 2;
+                    newScore = scoreToAdd + score;
                 }
                 break;
             case ANIMATION_CLEAR_BLOCKS:
@@ -169,6 +169,7 @@ int main(void)
                 break;
             
             case GAME_OVER:
+                // Do the game over animation.
                 animationFrameCount++;
                 if (animationFrameCount > 140) {
                     clearBoard(fallingBoard);
@@ -207,20 +208,10 @@ int main(void)
             addScore(&newScore,scoreToAdd);    
         }
         
-       
         if (checkLineClears(landedBoard,rowsToClearArr) == TRUE && gameState != ANIMATION_CLEAR_BLOCKS) {
             gameState = ANIMATION_CLEAR_BLOCKS;
         }
-
-        // Render the graphics
-        BeginDrawing();
-        // Compute required framebuffe scaling
-        scale = MIN(((float)GetScreenWidth())/SCREEN_W, ((float)GetScreenHeight())/SCREEN_H);
-        drawGameState();
-        //DrawRectangleGradientH(0,0,windowWidth*scale,windowHeight*scale, GRAY, BLUE);
-        EndDrawing();
-        
-        
+       renderGraphics(gameState);      
     }
 
     // De-Initialization
@@ -229,6 +220,31 @@ int main(void)
     free(fallingBoard);
     free(landedBoard);
     return 0;
+}
+
+
+/**
+* FUNCTION: renderGraphics() 
+* DESCRIPTION: render the graphics to the screen.
+*/ 
+void renderGraphics(enum State screen) {
+    // Compute required framebuffer scaling  
+    scale = MIN((float)GetScreenWidth()/SCREEN_W,(float)GetScreenHeight()/SCREEN_H);
+    switch (screen) { 
+        default:
+        // Begin texture mode to draw to the target (essentially acts as a canvas)
+        BeginTextureMode(target);
+            DrawTexture(gameboardUI,0,0,WHITE); 
+            drawGameState();
+        EndTextureMode();
+        break;
+    }
+    BeginDrawing();
+        DrawTexturePro(target.texture, (Rectangle){ 0.0f, 0.0f, (float)target.texture.width, (float)-target.texture.height },
+            (Rectangle){ (GetScreenWidth() - ((float)SCREEN_W*scale))*0.5f, (GetScreenHeight() - ((float)SCREEN_H*scale))*0.5f,
+            (float)SCREEN_W*scale, (float)SCREEN_H*scale }, (Vector2){ 0, 0 }, 0.0f, WHITE);
+    ClearBackground(BLACK);     // Clear screen background
+    EndDrawing();
 }
 
 /**
@@ -389,115 +405,6 @@ void getNewPiece(uint8_t (*piece)[SHAPE_SIZE][SHAPE_SIZE]) {
     memcpy(piece,newPiece,sizeof(uint8_t[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
 }
 
-/**
-* FUNCTION: drawGameState() 
-* DESCRIPTION: Draws the state of the game on this current frame. 
-*/ 
-void drawGameState() {
-            ClearBackground(BLACK);     // Clear screen background
-            // Draw the UI texture to screen, properly scaled
-            DrawTexturePro(gameboardUI, (Rectangle){ 0.0f, 0.0f, (float)target.texture.width, (float)target.texture.height }, 
-                           (Rectangle){ (GetScreenWidth() - ((float)SCREEN_W*scale))*0.5f, (GetScreenHeight() - ((float)SCREEN_H*scale))*0.5f,
-                           (float)SCREEN_W*scale, (float)SCREEN_H*scale }, 
-                           (Vector2){ 0.0f, 0.0f }, 
-                           0.0f, 
-                           WHITE);
-        drawScore(score,scale);
-        drawLevel(level,scale);
-        drawBoard(landedBoard,scale);
-        drawBoard(fallingBoard,scale);
-        drawNextPiece(nextPiece,scale);
-}
-
-void drawTitleScreen() {
-
-}
-
-/**
-* FUNCTION: drawBoard() 
-* DESCRIPTION: Draws the provided board to the screen.
-*/ 
-void drawBoard(uint8_t (*board)[ROWS],float scale) {
-    for (int row = 3; row < ROWS; row++) {
-        for (int col = 0; col < COLUMNS; col++) {
-            if (board[row][col] != 0)
-                drawBlock(col,row - 3,board[row][col],scale);
-        }
-    }
-}
-
-/**
-* FUNCTION: drawBlock() 
-* DESCRIPTION: Draws the provided block to the screen.
-*/ 
-void drawBlock(int x, int y, int color,float scale) {
-    // variables to adjust scaling to so that the blocks fit the screen properly
-    float blockSizeWidth = 0.04;
-    float blockSizeHeight = 0.0425;
-    color--; // we start at 0 here but the blocks in the array start at 1, so subtract 1.
-    DrawTexturePro(blocksSpriteSheet, (Rectangle){ 0.0f, color*32.0f, 32,32 }, 
-                           (Rectangle){ (GetScreenWidth() - ((float)SCREEN_W*scale))*0.5f, (GetScreenHeight() - ((float)SCREEN_H*scale))*0.5f,
-                           (float)SCREEN_W*scale*blockSizeWidth, (float)SCREEN_H*scale*blockSizeHeight }, 
-                           (Vector2){ -1*(199.0f + 32*x)*scale, -1*(57.0f + 32*(y))*scale }, 
-                           0.0f, 
-                           WHITE);
-}
-
-/**
-* FUNCTION: drawScore() 
-* DESCRIPTION: Draws the current score to the screen.
-*/ 
-void drawScore(int score,float scale) {
-    int digit = 0;
-    int digitArr[6] = {0,0,0,0,0,0};
-    int index = 5;
-    while(score)
-    {
-        digitArr[index] = score % 10;
-        score /= 10;
-        index--;
-    }
-    for (int i = 0; i < 6; i++) {
-        DrawTexturePro(digitsSpriteSheet, (Rectangle){ 0.0f, (digitArr[i])*44.5f, 32,42 }, 
-                           (Rectangle){ (GetScreenWidth() - ((float)SCREEN_W*scale))*0.5f, (GetScreenHeight() - ((float)SCREEN_H*scale))*0.5f,
-                           (float)SCREEN_W*scale*0.04, (float)SCREEN_H*scale*0.045 }, 
-                           (Vector2){ -1*(570.0f + 32*i)*scale, -1*100.0f*scale }, 
-                           0.0f, 
-                           WHITE);
-    }  
-}
-
-void drawLevel(int level,float scale) {
-    int digitArr[2] = {0,0};
-    int index = 1;
-    while(level)
-    {
-        digitArr[index] = level % 10;
-        level /= 10;
-        index--;
-    }
-    for (int i = 0; i < 2; i++) {
-        DrawTexturePro(digitsSpriteSheet, (Rectangle){ 0.0f, (digitArr[i]*44.5f), 32,42 }, 
-                           (Rectangle){ (GetScreenWidth() - ((float)SCREEN_W*scale))*0.5f, (GetScreenHeight() - ((float)SCREEN_H*scale))*0.5f,
-                           (float)SCREEN_W*scale*0.04, (float)SCREEN_H*scale*0.045 }, 
-                           (Vector2){ -1*(60.0f + 32*i)*scale, -1*120.0f*scale }, 
-                           0.0f, 
-                           WHITE);
-    }
-}
-
-/**
-* FUNCTION: drawNextPiece()
-* DESCRIPTION: Draws the next piece to the screen. 
-*/ 
-void drawNextPiece(uint8_t (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE],float scale) { 
-    for (int i = 0; i < SHAPE_SIZE; i++) {
-            for (int j = 0; j < SHAPE_SIZE; j++) {
-                if (nextPiece[0][i][j] > 0)
-                    drawBlock(13 + j,5 + i,nextPiece[0][i][j],scale);
-            }
-        }
-}
 
 /**
 * FUNCTION: doScoreCalculations() 

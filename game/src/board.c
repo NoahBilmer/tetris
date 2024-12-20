@@ -1,6 +1,4 @@
-#include <stdio.h>
 #include "headers/board.h"
-#include "headers/globals.h"
 
 /**
 * FUNCTION: writeBlocks() 

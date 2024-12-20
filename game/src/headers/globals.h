@@ -22,14 +22,21 @@
 #define COLLISION_OUT_OF_BOUNDS 1
 #define COLLISION_BLOCK_ALREADY_EXISTS 2
 
-enum State {
+#define MAX(a, b) ((a)>(b)? (a) : (b))
+#define MIN(a, b) ((a)<(b)? (a) : (b))
+
+typedef enum State {
     MAIN_GAME_LOOP,
     ANIMATION_MUZZLE_FLASH,
     ANIMATION_CLEAR_BLOCKS,
     PAUSED,
     GAME_OVER,
     TITLE_SCREEN,
-};
+} State;
+
+extern uint8_t (*fallingBoard)[ROWS];
+extern uint8_t (*landedBoard)[ROWS];
+extern uint8_t (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE];
 
 #define SPEED_LV_0 48
 #define LV_SPEED_ARR_LENGTH 30
@@ -52,6 +59,9 @@ static uint8_t levelSpeedArr[LV_SPEED_ARR_LENGTH] = {
     1       // lv 29
     
 };
+
+extern uint8_t level;
+extern uint16_t score;
 
 // Tetris Shapes 
 static uint8_t i_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
