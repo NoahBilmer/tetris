@@ -40,6 +40,7 @@ extern uint8_t (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE];
 
 #define SPEED_LV_0 48
 #define LV_SPEED_ARR_LENGTH 30
+#define MAX_LEVEL 29
 
 static uint8_t levelSpeedArr[LV_SPEED_ARR_LENGTH] = {
     48,     // lv 0
@@ -60,8 +61,8 @@ static uint8_t levelSpeedArr[LV_SPEED_ARR_LENGTH] = {
     
 };
 
-extern uint8_t level;
-extern uint16_t score;
+extern int level;
+extern uint32_t score;
 
 // Tetris Shapes 
 static uint8_t i_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {

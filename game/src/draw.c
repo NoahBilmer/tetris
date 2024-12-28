@@ -12,10 +12,32 @@
 void drawGameState() {
     // Draw the UI texture to screen, properly scaled
     drawScore();
-    drawLevel(level);   
+    drawLevel(level,60,120);   
     drawBoard(landedBoard);
     drawBoard(fallingBoard);
     drawNextPiece();
+}
+
+
+void drawSpriteCentered(Texture2D texture, int x, int y,float scale) {
+    if (scale <= 0)
+        scale = 1;
+    DrawTexturePro(texture,
+    (Rectangle){0.0f,0.0f,texture.width,texture.height},
+    (Rectangle) {x,y,
+    texture.width*scale,texture.height*scale},
+    (Vector2){texture.width/2,texture.height/2},
+    0.0f,
+    WHITE);
+}
+
+void drawTitleScreen() {
+    drawSpriteCentered(githubLink,SCREEN_W/2,20,1);
+    drawSpriteCentered(titleText,SCREEN_W/2,100,1);
+    drawSpriteCentered(hitEnterText,SCREEN_W/2,SCREEN_H/2,1);
+    drawSpriteCentered(levelSelectInfoText,SCREEN_W/2,SCREEN_H/2 + 50,1);
+    drawSpriteCentered(levelText,SCREEN_W/2 - 280,SCREEN_H/2 + 300,2);
+    drawLevel(level,SCREEN_W/2 - 160,SCREEN_H/2 + 288); 
 }
 
 
@@ -27,7 +49,7 @@ void drawScore() {
     int digit = 0;
     int digitArr[6] = {0,0,0,0,0,0};
     int index = 5;
-    uint8_t scoreCpy = score;
+    uint32_t scoreCpy = score;
     while(scoreCpy)
     {
         digitArr[index] = scoreCpy % 10;
@@ -48,7 +70,7 @@ void drawScore() {
 * FUNCTION: drawLevel() 
 * DESCRIPTION: Draws the provided level to the screen.
 */ 
-void drawLevel(int level) {
+void drawLevel(int level,int x, int y) {
     int digitArr[2] = {0,0};
     int index = 1;
     while(level)
@@ -59,7 +81,7 @@ void drawLevel(int level) {
     }
     for (int i = 0; i < 2; i++) {
         DrawTexturePro(digitsSpriteSheet, (Rectangle){ 0.0f, (digitArr[i]*44.2f), 32,42 }, 
-            (Rectangle){ (60 + 32*i),120,
+            (Rectangle){ (x + 32*i),y,
             digitsSpriteSheet.width,44.5f}, 
             (Vector2){0,0}, 
             0.0f, 

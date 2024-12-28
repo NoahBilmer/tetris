@@ -3,6 +3,7 @@
 ********************************************************************************************/
 #include <stdlib.h>
 #include "raylib.h"
+#include "raymath.h"
 #include "headers/board.h"
 #include "headers/draw.h"
 #include "headers/globals.h"
@@ -14,19 +15,20 @@
 void updateGameState();
 void getInput(int* wishX, int* wishY, int* wishRotate, int *moveFrameCount);
 void getNewPiece(uint8_t (*piece)[SHAPE_SIZE][SHAPE_SIZE]);
-int doScoreCalculations();
-void addScore(int *scoreToAdd,int newScore);
+uint32_t doScoreCalculations();
+void addScore(uint32_t *scoreToAdd,uint32_t newScore);
 
 void renderGraphics(enum State screen);
 void playClearAnimation(int *color);
+void transitionBackgroundHue();
 
 // Globals
 uint8_t (*landedBoardCpy)[ROWS];
 uint8_t (*currentPiece)[SHAPE_SIZE][SHAPE_SIZE];
 int8_t x = START_X;
 int8_t y = START_Y;
-uint16_t score = 0;
-uint8_t level = 7;
+uint32_t score = 0;
+int level = 7;
 
 uint8_t (*fallingBoard)[ROWS];
 uint8_t (*landedBoard)[ROWS];
@@ -35,10 +37,11 @@ uint8_t (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE];
 Texture2D gameboardUI;
 Texture2D blocksSpriteSheet;
 Texture2D digitsSpriteSheet;
-Texture2D backgroundColor;
 Texture2D titleText;
 Texture2D githubLink;
-Texture2D levelSelectText;
+Texture2D levelSelectInfoText;
+Texture2D hitEnterText;
+Texture2D levelText;
 
 // input related globals 
 int wishX, wishY, wishRotate;
@@ -57,7 +60,7 @@ bool newPiece = TRUE;
 uint8_t rotation = 0;
 uint8_t newRotation = 0;
 int animationFrameCount = 0;
-State gameState = MAIN_GAME_LOOP;
+State gameState = TITLE_SCREEN;
 uint8_t gameStateCpy; // used for pausing mechanism
 int rowsToClearArr[4] = {-1,-1,-1,-1};
 // used to copy each row for the line clearing animation
@@ -67,7 +70,10 @@ uint8_t rowColor = 0;
 bool swap = FALSE;
 // used for clearing animation
 int clearColor = 0;
-uint8_t scoreToAdd = 0;
+uint32_t scoreToAdd = 0;
+Color backgroundColor;
+
+int colorFadeDir = -1;
 
 float scale;
 
@@ -78,6 +84,7 @@ int main(void)
 {
     const int windowWidth = 820;
     const int windowHeight = 760;
+    backgroundColor = ((Color) {221,208,242,255});
     landedBoard = calloc(4,sizeof(int[ROWS][COLUMNS]));
     fallingBoard = calloc(4,sizeof(int[ROWS][COLUMNS]));
     landedBoardCpy = calloc(4,sizeof(int[ROWS][COLUMNS]));
@@ -95,11 +102,13 @@ int main(void)
     gameboardUI = LoadTexture("resources/tetris-ui.png");
     blocksSpriteSheet = LoadTexture("resources/blocks.png");
     digitsSpriteSheet = LoadTexture("resources/digits.png");
-    backgroundColor = LoadTexture("resources/background-color.png");
     titleText = LoadTexture("resources/title.png");
     githubLink = LoadTexture("resources/github-link.png");
-    levelSelectText = LoadTexture("resources/select-level.png");
+    levelSelectInfoText = LoadTexture("resources/select-level-text.png");
+    levelText = LoadTexture("resources/level-text.png");
+    hitEnterText = LoadTexture("resources/hit-enter-text.png");
     SetWindowMinSize(320, 240);
+    SetExitKey(KEY_NULL);
     
     // Render texture initialization, used to hold the rendering result so we can easily resize it
     target = LoadRenderTexture(SCREEN_W, SCREEN_H); 
@@ -118,14 +127,16 @@ int main(void)
 
     /* Our "new score" when a line is cleared. We gradually tally up the score 
     using addScore() rather than instantly adding it. */
-    int newScore = 0;
+    uint32_t newScore = 0;
     
-    baseSpeed = levelSpeedArr[level];
     uint8_t row, col = 0;
     uint8_t  tempColorVar = 1;
+    int exitFlag = 0;
     // Main game loop
-    while (!WindowShouldClose())
+    while (!WindowShouldClose() && !exitFlag)
     {
+
+        baseSpeed = levelSpeedArr[level];
         // Get all the input for this current frame.
         getInput(&wishX,&wishY,&wishRotate,&moveFrameCount);    
         
@@ -146,7 +157,7 @@ int main(void)
                     gameState = MAIN_GAME_LOOP;
                     animationFrameCount = 0;
                     scoreToAdd = 2;
-                    newScore = scoreToAdd + score;
+                    newScore = score + scoreToAdd;
                 }
                 break;
             case ANIMATION_CLEAR_BLOCKS:
@@ -201,12 +212,28 @@ int main(void)
                 }
                 break;
             case TITLE_SCREEN:
+                if (IsKeyPressed(KEY_ENTER)) 
+                   gameState = MAIN_GAME_LOOP;
+                if (IsKeyPressed(KEY_LEFT)) {
+                    level--;
+                    if (level < 0) 
+                        level = MAX_LEVEL;
+                } else if (IsKeyPressed(KEY_RIGHT)) {
+                    level++;
+                    if (level == MAX_LEVEL + 1)
+                        level = 0;
+                }
+                if (IsKeyPressed(KEY_ESCAPE)) {
+                    exitFlag = 1;
+                    break;
+                }
+                transitionBackgroundHue();
                 break;
         }
         // Add the score gradually every frame so long as there is still score to add.
         if (newScore > 0) {
             addScore(&newScore,scoreToAdd);    
-        }
+        } 
         
         if (checkLineClears(landedBoard,rowsToClearArr) == TRUE && gameState != ANIMATION_CLEAR_BLOCKS) {
             gameState = ANIMATION_CLEAR_BLOCKS;
@@ -231,6 +258,12 @@ void renderGraphics(enum State screen) {
     // Compute required framebuffer scaling  
     scale = MIN((float)GetScreenWidth()/SCREEN_W,(float)GetScreenHeight()/SCREEN_H);
     switch (screen) { 
+        case TITLE_SCREEN:
+        BeginTextureMode(target);
+            ClearBackground(backgroundColor);
+            drawTitleScreen();
+        EndTextureMode();
+        break;
         default:
         // Begin texture mode to draw to the target (essentially acts as a canvas)
         BeginTextureMode(target);
@@ -311,6 +344,9 @@ void getInput(int* wishX, int* wishY, int*wishRotate, int *moveFrameCount) {
             else {
                 gameState = gameStateCpy;
             }
+        }
+        if (IsKeyReleased(KEY_ESCAPE)) {
+            gameState = TITLE_SCREEN;
         }
 }
 
@@ -410,9 +446,9 @@ void getNewPiece(uint8_t (*piece)[SHAPE_SIZE][SHAPE_SIZE]) {
 * FUNCTION: doScoreCalculations() 
 * DESCRIPTION: returns the score to add based on the number of lines the player has cleared.
 */ 
-int doScoreCalculations() {
+uint32_t doScoreCalculations() {
     int lines = 0;
-    int scoreToAdd;
+    uint32_t scoreToAdd;
     // Add up our lines
     for (int i = 0; rowsToClearArr[i] != -1 && i < 4; i++) {
         lines = i + 1;
@@ -431,8 +467,6 @@ int doScoreCalculations() {
             scoreToAdd = (1200 * (level + 1));
             break;
     }
-     printf("Score to add: %d\n",scoreToAdd);
-    
     return scoreToAdd;
     
     
@@ -442,8 +476,9 @@ int doScoreCalculations() {
 * FUNCTION: addScore(int* newScore) 
 * DESCRIPTION: Gradually adds up our score untill we get to our desired new score value.
 */ 
-void addScore(int *newScore,int scoreToAdd) {
-    if (score <= *newScore) {
+void addScore(uint32_t *newScore,uint32_t scoreToAdd) {
+    printf("Score to add :%d\nNewScore: %d\n",scoreToAdd,*newScore);
+    if (score < *newScore) {
         /* scale the speed at which we tally up our points based on the value of newScore.
         *  We do need to ensure that the time it takes to tally up score is not greater than the time it
         *  takes to complete the line clearing animation, because the player could overwrite newScore while we
@@ -464,7 +499,6 @@ void addScore(int *newScore,int scoreToAdd) {
             score += 1000;
         }
         else {
-            // if the score we want to add is over 10,000, just add the score instantly.
             score = *newScore;
             *newScore = 0;
         }
@@ -502,6 +536,31 @@ void playClearAnimation(int *color) {
         animationFrameCount = 0;
         gameState = MAIN_GAME_LOOP;
     }
+}
+
+
+void transitionBackgroundHue() { 
+    int MAX_RED = 213;
+    int MAX_GREEN = 217;
+    int MAX_BLUE = 224;
+    int MIN_RED = 100;
+    int MIN_GREEN = 120;
+    int MIN_BLUE = 180;
+    
+    if (backgroundColor.r == MAX_RED && backgroundColor.g == MAX_GREEN && backgroundColor.b == MAX_BLUE) {
+        colorFadeDir = -1;
+    } else if (backgroundColor.r == MIN_RED && backgroundColor.g == MIN_GREEN && backgroundColor.b == MIN_BLUE) {
+        colorFadeDir = 1;
+    }
+
+    backgroundColor.r += colorFadeDir;
+    backgroundColor.g += colorFadeDir;
+    backgroundColor.b += colorFadeDir;
+    // Clamp our color values to ensure they stay between our desired range.
+    backgroundColor.r = Clamp(backgroundColor.r,MIN_RED,MAX_RED);
+    backgroundColor.g = Clamp(backgroundColor.g,MIN_GREEN,MAX_GREEN);
+    backgroundColor.b = Clamp(backgroundColor.b,MIN_BLUE,MAX_BLUE); 
+    
 }
 
 
