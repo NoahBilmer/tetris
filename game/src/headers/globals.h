@@ -31,6 +31,7 @@ typedef enum GameStateEnum {
     ANIMATION_CLEAR_BLOCKS,
     GAME_OVER,
     TITLE_SCREEN,
+    EXIT,
 } GameStateEnum;
 
 typedef struct State {
@@ -45,6 +46,12 @@ typedef struct State {
     uint8_t fastFallSpeed;
     GameStateEnum state;
     Color titleScreenBackground;
+    uint16_t frameCount;
+    uint8_t lines;
+    uint8_t level;
+    uint16_t score;
+    uint16_t scoreToAdd;
+    int8_t rowsToClearArr[4];
 
     // Board 
     uint8_t (*fallingBoard)[ROWS];
@@ -76,9 +83,6 @@ static uint8_t levelSpeedArr[LV_SPEED_ARR_LENGTH] = {
     1       // lv 29
     
 };
-
-extern int8_t level;
-extern uint32_t score;
 
 // Tetris Shapes 
 static uint8_t i_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {

@@ -11,8 +11,8 @@
 */ 
 void drawGameState(State *state) {
     // Draw the UI texture to screen, properly scaled
-    drawScore();
-    drawLevel(level,60,120);   
+    drawScore(state->score);
+    drawLevel(state->level,60,120);   
     drawBoard(state->landedBoard);
     drawBoard(state->fallingBoard);
     drawNextPiece(state);
@@ -31,13 +31,13 @@ void drawSpriteCentered(Texture2D texture, int x, int y,float scale) {
     WHITE);
 }
 
-void drawTitleScreen() {
+void drawTitleScreen(State* state) {
     drawSpriteCentered(githubLink,SCREEN_W/2,20,1);
     drawSpriteCentered(titleText,SCREEN_W/2,100,1);
     drawSpriteCentered(hitEnterText,SCREEN_W/2,SCREEN_H/2,1);
     drawSpriteCentered(levelSelectInfoText,SCREEN_W/2,SCREEN_H/2 + 50,1);
     drawSpriteCentered(levelText,SCREEN_W/2 - 280,SCREEN_H/2 + 300,2);
-    drawLevel(level,SCREEN_W/2 - 160,SCREEN_H/2 + 288); 
+    drawLevel(state->level,SCREEN_W/2 - 160,SCREEN_H/2 + 288); 
 }
 
 
@@ -45,7 +45,7 @@ void drawTitleScreen() {
 * FUNCTION: drawScore() 
 * DESCRIPTION: Draws the current score to the screen.
 */ 
-void drawScore() {
+void drawScore(int score) {
     int digit = 0;
     int digitArr[6] = {0,0,0,0,0,0};
     int index = 5;

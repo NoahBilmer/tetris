@@ -1,4 +1,6 @@
 #include "headers/board.h"
+#include <string.h>
+#include <stdlib.h>
 
 /**
 * FUNCTION: writeBlocks() 
@@ -77,7 +79,7 @@ void clearBoard(uint8_t board[][ROWS]) {
 * RETURN: TRUE if there is one or moe lines to clear.
 *         FALSE if no full rows are found.
 */ 
-int checkLineClears(uint8_t board[][ROWS], int rowToClearArr[4]) {
+int checkLineClears(uint8_t board[][ROWS], int8_t rowToClearArr[4]) {
     int count = 0; 
     int lineCount = 0;
     for (int row = 0; row < ROWS; row++) {
@@ -113,7 +115,7 @@ void toggleRowColor(uint8_t board[][ROWS], int row, int color) {
 * FUNCTION: clearBoard() 
 * DESCRIPTION: Clears all rows on the board at the Y positions specified in rowsToClear.
 */ 
-void clearLineRows(uint8_t board[][ROWS], int rowsToClear[4]) {
+void clearLineRows(uint8_t board[][ROWS], int8_t rowsToClear[4]) {
     int count = 0;
     for (count = 0; (count < 4); count++) {
         if (rowsToClear[count] == -1) {
@@ -125,6 +127,40 @@ void clearLineRows(uint8_t board[][ROWS], int rowsToClear[4]) {
             }
         }
     }
+}
+
+/**
+* FUNCTION: getNewPiece() 
+* DESCRIPTION: Randomly selects a new piece to copy to the provided memory address.
+*/ 
+void getNewPiece(uint8_t (*piece)[SHAPE_SIZE][SHAPE_SIZE]) {
+    uint8_t pieceIndex = (rand() % 7) + 1;
+    uint8_t (*newPiece)[SHAPE_SIZE][SHAPE_SIZE];
+    switch (pieceIndex) {
+        case 1:
+            newPiece = i_block;
+            break;
+        case 2:
+            newPiece = o_block;
+            break;
+        case 3:
+            newPiece = j_block;
+            break;
+        case 4:
+            newPiece = l_block;
+            break;
+        case 5:
+            newPiece = s_block;
+            break;
+        case 6:
+            newPiece = z_block;
+            break;
+        case 7:
+            newPiece = t_block;
+            break;
+    }
+    // Copy the piece
+    memcpy(piece,newPiece,sizeof(uint8_t[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
 }
 
 

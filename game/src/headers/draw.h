@@ -12,9 +12,9 @@ extern Texture2D hitEnterText;
 extern Texture2D levelText;
 
 
-void drawTitleScreen();
+void drawTitleScreen(State* state);
 void drawGameState(State* state);
-void drawScore();
+void drawScore(int score);
 void drawLevel(int level,int x,int y);
 void drawBoard();
 void drawBlock();
