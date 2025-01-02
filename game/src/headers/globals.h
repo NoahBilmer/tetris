@@ -2,16 +2,16 @@
 #define GLOBALS_H
 
 #include <stdint.h>
+#include "raylib.h"
 
-#define DEBUG 1
 #define COLUMNS 10
 #define ROWS 23
 #define BOARD_START 3
 
 #define SCREEN_W 820
 #define SCREEN_H 760
-#define START_X 4;
-#define START_Y 0;
+#define START_X 4
+#define START_Y 0
 
 #define FALSE 0
 #define TRUE 1
@@ -25,18 +25,34 @@
 #define MAX(a, b) ((a)>(b)? (a) : (b))
 #define MIN(a, b) ((a)<(b)? (a) : (b))
 
-typedef enum State {
+typedef enum GameStateEnum {
     MAIN_GAME_LOOP,
     ANIMATION_MUZZLE_FLASH,
     ANIMATION_CLEAR_BLOCKS,
-    PAUSED,
     GAME_OVER,
     TITLE_SCREEN,
-} State;
+} GameStateEnum;
 
-extern uint8_t (*fallingBoard)[ROWS];
-extern uint8_t (*landedBoard)[ROWS];
-extern uint8_t (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE];
+typedef struct State {
+    Vector2 moveVec;
+    int x;
+    int y;
+    bool wishRotate;
+    bool newPiece;
+    uint8_t rotation;
+    uint8_t newRotation;
+    uint8_t speed;
+    uint8_t fastFallSpeed;
+    GameStateEnum state;
+    Color titleScreenBackground;
+
+    // Board 
+    uint8_t (*fallingBoard)[ROWS];
+    uint8_t (*landedBoard)[ROWS];
+    uint8_t (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE];
+    uint8_t (*currentPiece)[SHAPE_SIZE][SHAPE_SIZE];
+
+} State;
 
 #define SPEED_LV_0 48
 #define LV_SPEED_ARR_LENGTH 30
@@ -61,7 +77,7 @@ static uint8_t levelSpeedArr[LV_SPEED_ARR_LENGTH] = {
     
 };
 
-extern int level;
+extern int8_t level;
 extern uint32_t score;
 
 // Tetris Shapes 

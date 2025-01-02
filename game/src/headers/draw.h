@@ -13,11 +13,11 @@ extern Texture2D levelText;
 
 
 void drawTitleScreen();
-void drawGameState();
+void drawGameState(State* state);
 void drawScore();
 void drawLevel(int level,int x,int y);
 void drawBoard();
 void drawBlock();
-void drawNextPiece();
+void drawNextPiece(State* state);
 
 #endif

@@ -9,13 +9,13 @@
 * FUNCTION: drawGameState() 
 * DESCRIPTION: draws the state of the game on this current frame. 
 */ 
-void drawGameState() {
+void drawGameState(State *state) {
     // Draw the UI texture to screen, properly scaled
     drawScore();
     drawLevel(level,60,120);   
-    drawBoard(landedBoard);
-    drawBoard(fallingBoard);
-    drawNextPiece();
+    drawBoard(state->landedBoard);
+    drawBoard(state->fallingBoard);
+    drawNextPiece(state);
 }
 
 
@@ -123,11 +123,11 @@ void drawBlock(int x, int y, int color) {
 * FUNCTION: drawNextPiece()
 * DESCRIPTION: Draws the next piece to the screen. 
 */ 
-void drawNextPiece() { 
+void drawNextPiece(State* state) { 
     for (int i = 0; i < SHAPE_SIZE; i++) {
             for (int j = 0; j < SHAPE_SIZE; j++) {
-                if (nextPiece[0][i][j] > 0)
-                    drawBlock(13 + j,5 + i,nextPiece[0][i][j]);
+                if (state->nextPiece[0][i][j] > 0)
+                    drawBlock(13 + j,5 + i,state->nextPiece[0][i][j]);
             }
         }
 }

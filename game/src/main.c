@@ -12,28 +12,21 @@
 #include <time.h>
 #include <stdint.h>
 
-void updateGameState();
-void getInput(int* wishX, int* wishY, int* wishRotate, int *moveFrameCount);
+void updateGameState(State* state);
 void getNewPiece(uint8_t (*piece)[SHAPE_SIZE][SHAPE_SIZE]);
 uint32_t doScoreCalculations();
 void addScore(uint32_t *scoreToAdd,uint32_t newScore);
-
-void renderGraphics(enum State screen);
-void playClearAnimation(int *color);
+void renderGraphics(State* screen);
+void playClearAnimation(State* state);
 void transitionBackgroundHue();
+void getInput(State* state,int* moveFrameCount);
+void initGameState(State* state);
 
-// Globals
-uint8_t (*landedBoardCpy)[ROWS];
-uint8_t (*currentPiece)[SHAPE_SIZE][SHAPE_SIZE];
-int8_t x = START_X;
-int8_t y = START_Y;
 uint32_t score = 0;
-int level = 7;
 
-uint8_t (*fallingBoard)[ROWS];
-uint8_t (*landedBoard)[ROWS];
-uint8_t (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE];
-
+// Extern variable declarations 
+int8_t level = 7;
+uint8_t lines = 0;
 Texture2D gameboardUI;
 Texture2D blocksSpriteSheet;
 Texture2D digitsSpriteSheet;
@@ -42,58 +35,28 @@ Texture2D githubLink;
 Texture2D levelSelectInfoText;
 Texture2D hitEnterText;
 Texture2D levelText;
+RenderTexture2D target;
 
-// input related globals 
-int wishX, wishY, wishRotate;
-
-bool paused = 0;
-
-int moveCooldown = 0;
-/* speed determines the number of frames it takes to move
- * the piece down one y coordinate. */
-uint8_t baseSpeed = 0;
-uint8_t fastFallSpeed = 1;
-float speed = SPEED_LV_0;
 int frameCount = 0;
-int moveFrameCount = 0;
-bool newPiece = TRUE;
-uint8_t rotation = 0;
-uint8_t newRotation = 0;
 int animationFrameCount = 0;
-State gameState = TITLE_SCREEN;
-uint8_t gameStateCpy; // used for pausing mechanism
 int rowsToClearArr[4] = {-1,-1,-1,-1};
-// used to copy each row for the line clearing animation
-int rowCpyArr[4][COLUMNS];
-uint8_t lines = 0;
-uint8_t rowColor = 0;
-bool swap = FALSE;
-// used for clearing animation
-int clearColor = 0;
-uint32_t scoreToAdd = 0;
-Color backgroundColor;
 
 int colorFadeDir = -1;
 
-float scale;
-
-RenderTexture2D target;
-RenderTexture2D digitsTarget; 
-
 int main(void)
-{
+{ 
     const int windowWidth = 820;
     const int windowHeight = 760;
-    backgroundColor = ((Color) {221,208,242,255});
-    landedBoard = calloc(4,sizeof(int[ROWS][COLUMNS]));
-    fallingBoard = calloc(4,sizeof(int[ROWS][COLUMNS]));
-    landedBoardCpy = calloc(4,sizeof(int[ROWS][COLUMNS]));
     
-    currentPiece = calloc(4,sizeof(int[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
-    nextPiece = calloc(4,sizeof(int[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
+    uint32_t scoreToAdd = 0;    
+
+    // Initialize the game state.
+    State* gameState = malloc(sizeof(State));
+    initGameState(gameState);
+
     srand(time(NULL));
     // Get our first piece.
-    getNewPiece(nextPiece);
+    getNewPiece(gameState->nextPiece);
 
     // Enable config flags for resizable window and vertical synchro
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
@@ -112,49 +75,37 @@ int main(void)
     
     // Render texture initialization, used to hold the rendering result so we can easily resize it
     target = LoadRenderTexture(SCREEN_W, SCREEN_H); 
-    digitsTarget = LoadRenderTexture(digitsSpriteSheet.width, blocksSpriteSheet.height);
     SetTextureFilter(target.texture, TEXTURE_FILTER_BILINEAR);  // Texture scale filter to use
 
     SetTargetFPS(60);  // Set our game to run at 60 frames-per-second
-    #if DEBUG == 1
-    for (int row = 0; row < ROWS; row++) {
-        printf("\n");
-        for (int col = 0; col < COLUMNS; col++) {
-            printf("%d, ", fallingBoard[row][col]);
-        }
-    }  
-    #endif
 
     /* Our "new score" when a line is cleared. We gradually tally up the score 
     using addScore() rather than instantly adding it. */
     uint32_t newScore = 0;
-    
     uint8_t row, col = 0;
     uint8_t  tempColorVar = 1;
     int exitFlag = 0;
+    int moveFrameCount = 0;
     // Main game loop
     while (!WindowShouldClose() && !exitFlag)
     {
-
-        baseSpeed = levelSpeedArr[level];
+        gameState->speed = levelSpeedArr[level];
         // Get all the input for this current frame.
-        getInput(&wishX,&wishY,&wishRotate,&moveFrameCount);    
+        getInput(gameState,&moveFrameCount);    
         
         // iterate the framecount
         frameCount++;
         
-        switch (gameState) {
-            case PAUSED:
-                break;
+        switch (gameState->state) {
             case MAIN_GAME_LOOP:
-                updateGameState();
+                updateGameState(gameState);
                 break;
             case ANIMATION_MUZZLE_FLASH:
                 animationFrameCount++;
-                clearBoard(fallingBoard);
-                writeBlocks(x,y,currentPiece[rotation],fallingBoard,TRUE);
+                clearBoard(gameState->fallingBoard);
+                writeBlocks(gameState->x,gameState->y,gameState->currentPiece[gameState->rotation],gameState->fallingBoard,TRUE);
                 if (animationFrameCount > 1) {
-                    gameState = MAIN_GAME_LOOP;
+                    gameState->state = MAIN_GAME_LOOP;
                     animationFrameCount = 0;
                     scoreToAdd = 2;
                     newScore = score + scoreToAdd;
@@ -162,7 +113,7 @@ int main(void)
                 break;
             case ANIMATION_CLEAR_BLOCKS:
                 animationFrameCount++;
-                playClearAnimation(&clearColor);
+                playClearAnimation(gameState);
                 // add our score.
                 if (animationFrameCount == 0) {
                     scoreToAdd = doScoreCalculations();
@@ -174,7 +125,7 @@ int main(void)
                     }
                     if (lines % 10 == 0) {
                         level++;
-                        baseSpeed = levelSpeedArr[level];
+                        gameState->speed = levelSpeedArr[level];
                     }
                 }
                 break;
@@ -183,24 +134,24 @@ int main(void)
                 // Do the game over animation.
                 animationFrameCount++;
                 if (animationFrameCount > 140) {
-                    clearBoard(fallingBoard);
-                    clearBoard(landedBoard);
+                    clearBoard(gameState->fallingBoard);
+                    clearBoard(gameState->landedBoard);
                     row = 0;
                     col = 0;
                     score = 0;
                     newScore = 0;
                     animationFrameCount = 0;
-                    gameState = MAIN_GAME_LOOP; 
+                    gameState->state = MAIN_GAME_LOOP; 
                 } else {
                     if (row < ROWS) {
                         if (tempColorVar > 7) {
                             tempColorVar = 1;
                         }
-                        if (fallingBoard[row + 3][col] == 0) {
-                            fallingBoard[row + 3][col] = tempColorVar;
+                        if (gameState->fallingBoard[row + 3][col] == 0) {
+                            gameState->fallingBoard[row + 3][col] = tempColorVar;
                         }
-                        if (fallingBoard[(ROWS - 1) - row][(COLUMNS - 1) - col] == 0) {
-                            fallingBoard[(ROWS - 1) - row][(COLUMNS - 1) - col]  = tempColorVar;   
+                        if (gameState->fallingBoard[(ROWS - 1) - row][(COLUMNS - 1) - col] == 0) {
+                            gameState->fallingBoard[(ROWS - 1) - row][(COLUMNS - 1) - col]  = tempColorVar;   
                         }
                         tempColorVar++;
                         col++;
@@ -213,7 +164,7 @@ int main(void)
                 break;
             case TITLE_SCREEN:
                 if (IsKeyPressed(KEY_ENTER)) 
-                   gameState = MAIN_GAME_LOOP;
+                   gameState->state = MAIN_GAME_LOOP;
                 if (IsKeyPressed(KEY_LEFT)) {
                     level--;
                     if (level < 0) 
@@ -227,7 +178,7 @@ int main(void)
                     exitFlag = 1;
                     break;
                 }
-                transitionBackgroundHue();
+                transitionBackgroundHue(&gameState->titleScreenBackground);
                 break;
         }
         // Add the score gradually every frame so long as there is still score to add.
@@ -235,8 +186,8 @@ int main(void)
             addScore(&newScore,scoreToAdd);    
         } 
         
-        if (checkLineClears(landedBoard,rowsToClearArr) == TRUE && gameState != ANIMATION_CLEAR_BLOCKS) {
-            gameState = ANIMATION_CLEAR_BLOCKS;
+        if (checkLineClears(gameState->landedBoard,rowsToClearArr) == TRUE && gameState->state != ANIMATION_CLEAR_BLOCKS) {
+            gameState->state = ANIMATION_CLEAR_BLOCKS;
         }
        renderGraphics(gameState);      
     }
@@ -244,9 +195,27 @@ int main(void)
     // De-Initialization
     UnloadRenderTexture(target);        // Unload render texture
     CloseWindow();                      // Close window and OpenGL context
-    free(fallingBoard);
-    free(landedBoard);
+    free(gameState->fallingBoard);
+    free(gameState->landedBoard);
+    free(gameState);
     return 0;
+}
+
+void initGameState(State* state) {
+    state->moveVec.x = 0;
+    state->moveVec.y = 0;
+    state->x = START_X;
+    state->y = START_Y;
+    state->wishRotate = 0;
+    state->fastFallSpeed = 1;
+    state->speed = levelSpeedArr[level];
+    state->state = TITLE_SCREEN;
+    state->titleScreenBackground = ((Color) {221,208,242,255});
+
+    state->landedBoard = calloc(4,sizeof(int[ROWS][COLUMNS]));
+    state->fallingBoard = calloc(4,sizeof(int[ROWS][COLUMNS])); 
+    state->currentPiece = calloc(4,sizeof(int[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
+    state->nextPiece = calloc(4,sizeof(int[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
 }
 
 
@@ -254,13 +223,13 @@ int main(void)
 * FUNCTION: renderGraphics() 
 * DESCRIPTION: render the graphics to the screen.
 */ 
-void renderGraphics(enum State screen) {
-    // Compute required framebuffer scaling  
-    scale = MIN((float)GetScreenWidth()/SCREEN_W,(float)GetScreenHeight()/SCREEN_H);
-    switch (screen) { 
+void renderGraphics(State* state) {
+    // Compute required framebuffer scaling   
+    float scale = MIN((float)GetScreenWidth()/SCREEN_W,(float)GetScreenHeight()/SCREEN_H);
+    switch (state->state) { 
         case TITLE_SCREEN:
         BeginTextureMode(target);
-            ClearBackground(backgroundColor);
+            ClearBackground(state->titleScreenBackground);
             drawTitleScreen();
         EndTextureMode();
         break;
@@ -268,7 +237,7 @@ void renderGraphics(enum State screen) {
         // Begin texture mode to draw to the target (essentially acts as a canvas)
         BeginTextureMode(target);
             DrawTexture(gameboardUI,0,0,WHITE); 
-            drawGameState();
+            drawGameState(state);
         EndTextureMode();
         break;
     }
@@ -286,67 +255,57 @@ void renderGraphics(enum State screen) {
 * NOTE: moveFrameCount is used to ensure that holding down the left and right keys
 *       move the piece at a manageable speed. 
 */ 
-void getInput(int* wishX, int* wishY, int*wishRotate, int *moveFrameCount) {
+void getInput(State* state,int *moveFrameCount) {
         // reset input-related variables
-        *wishY = 0;
-        *wishX = 0;
-        *wishRotate = FALSE;
+        state->moveVec.x = 0;
+        state->moveVec.y = 0;
+        state->wishRotate = FALSE;
         if (IsKeyPressed(KEY_LEFT)) {
-            *wishX -= 1;
+            state->moveVec.x -= 1;
             *moveFrameCount = 0;
         }
         else if (IsKeyDown(KEY_LEFT)) {
            (*moveFrameCount)++;
             if (*moveFrameCount > 8) {
                 *moveFrameCount = 0;
-                *wishX -= 1;
+                state->moveVec.x -= 1;
             } else {
-                *wishX = 0;
+                state->moveVec.x = 0;
             }
         }
         if (IsKeyPressed(KEY_RIGHT))
         {
-            *wishX += 1;
+            state->moveVec.x += 1;
         }
         else if (IsKeyDown(KEY_RIGHT)) {
             (*moveFrameCount)++;
             if (*moveFrameCount > 8) {
                 *moveFrameCount = 0;  
-                *wishX += 1;
+                state->moveVec.x += 1;
             } else {
-                *wishX = 0;
+                state->moveVec.x = 0;
             }
         }
 
         if (IsKeyPressed(KEY_SPACE)) {
-            *wishRotate = TRUE;
-            newRotation++;
-            if (newRotation > 3) 
-                newRotation = 0;
+            state->wishRotate = TRUE;
+            state->newRotation++;
+            if (state->newRotation > 3) 
+                state->newRotation = 0;
         }
         // If we wish to fastfall only do so when we are not about to collide in the Y direction
         // This is to make last-second adjustments feel consistent 
-        if (IsKeyDown(KEY_DOWN) && !(colliding(x,y + 1,currentPiece[rotation],landedBoard) > 0)) {
-           speed = fastFallSpeed;
+        if (IsKeyDown(KEY_DOWN) && !(colliding(state->x,state->y + 1,state->currentPiece[state->rotation],state->landedBoard) > 0)) {
+           state->speed = state->fastFallSpeed;
         }
         else {
-            speed = baseSpeed;
+            state->speed = levelSpeedArr[level];
         }
         if (IsKeyReleased(KEY_DOWN)) {
-            speed = baseSpeed;
-        }
-        if (IsKeyPressed(KEY_TAB)) {
-            paused = !paused;
-            if (paused == TRUE) {
-                gameStateCpy = gameState;
-                gameState = PAUSED;
-            }
-            else {
-                gameState = gameStateCpy;
-            }
+            state->speed = levelSpeedArr[level];
         }
         if (IsKeyReleased(KEY_ESCAPE)) {
-            gameState = TITLE_SCREEN;
+            state->state = TITLE_SCREEN;
         }
 }
 
@@ -354,56 +313,56 @@ void getInput(int* wishX, int* wishY, int*wishRotate, int *moveFrameCount) {
 * FUNCTION: updateGameState() 
 * DESCRIPTION: Updates the board's state for the current frame based on player input.
 */ 
-void updateGameState() {
+void updateGameState(State* state) {
         // move the piece down if enough frames have elapsed.
-        if (frameCount > speed) {
+        if (frameCount > state->speed) {
             frameCount = 0;
-            wishY = 1;
+            state->moveVec.y = 1;
         }
 
         // Create a new Piece
-        if (newPiece) {
-            clearBoard(fallingBoard);
-            x = START_X;
-            y = START_Y;
-            wishRotate = FALSE;
-            newPiece = FALSE;
-            newRotation = 0;
-            rotation = newRotation;
-            memcpy(currentPiece,nextPiece,sizeof(int[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
-            getNewPiece(nextPiece);
+        if (state->newPiece) {
+            clearBoard(state->fallingBoard);
+            state->x = START_X;
+            state->y = START_Y;
+            state->wishRotate = FALSE;
+            state->newPiece = FALSE;
+            state->newRotation = 0;
+            state->rotation = state->newRotation;
+            memcpy(state->currentPiece,state->nextPiece,sizeof(int[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
+            getNewPiece(state->nextPiece);
             // check if we're colliding at the start x/y; this is the game over condition 
-            if (colliding(x,y,currentPiece[newRotation],landedBoard)) {
-                gameState = GAME_OVER;
+            if (colliding(state->x,state->y,state->currentPiece[state->newRotation],state->landedBoard)) {
+                state->state = GAME_OVER;
                 return;
             }
         }
                 
         /*** Do all piece translations and or transformations ***/
         // Rotate the piece if we are not colliding 
-        if (wishRotate && colliding(x,y,currentPiece[newRotation],landedBoard) == 0) {
-                rotation = newRotation;
+        if (state->wishRotate && colliding(state->x,state->y,state->currentPiece[state->newRotation],state->landedBoard) == 0) {
+                state->rotation = state->newRotation;
         }
         // Move in the x direction if we are not colliding.
-        if (colliding(x + wishX,y,currentPiece[rotation],landedBoard) == 0) {
-               x = x + wishX;             
+        if (colliding(state->x + state->moveVec.x,state->y,state->currentPiece[state->rotation],state->landedBoard) == 0) {
+               state->x = state->x + state->moveVec.x;             
         }
         /* Move in the y direction if we are not colliding. */
-        if (colliding(x,y + wishY,currentPiece[rotation],landedBoard) > 0) {
+        if (colliding(state->x,state->y + state->moveVec.y,state->currentPiece[state->rotation],state->landedBoard) > 0) {
             // Place this piece
             // create a new piece next iteration
-            gameState = ANIMATION_MUZZLE_FLASH;
-            newPiece = TRUE; 
-            writeBlocks(x,y,currentPiece[rotation],landedBoard,FALSE);
+            state->state = ANIMATION_MUZZLE_FLASH;
+            state->newPiece = TRUE; 
+            writeBlocks(state->x,state->y,state->currentPiece[state->rotation],state->landedBoard,FALSE);
         }
         /* NOT colliding in the y dimension; move the piece down one.*/
         else {
-            y = y + wishY; 
+            state->y = state->y + state->moveVec.y; 
         }
         // Write to the fallingBoard
-        if (wishRotate == TRUE || wishX != 0 || wishY != 0) {
-            clearBoard(fallingBoard);
-            writeBlocks(x,y,currentPiece[rotation],fallingBoard,FALSE);
+        if (state->wishRotate == TRUE || state->moveVec.x != 0 || state->moveVec.y != 0) {
+            clearBoard(state->fallingBoard);
+            writeBlocks(state->x,state->y,state->currentPiece[state->rotation],state->fallingBoard,FALSE);
         }
 }
 
@@ -513,33 +472,32 @@ void addScore(uint32_t *newScore,uint32_t scoreToAdd) {
 * FUNCTION: playClearAnimation()
 * DESCRIPTION: Plays the clear animation
 */ 
-void playClearAnimation(int *color) {
+void playClearAnimation(State* state) {
     // every 10 frames we should either change all lines to clear white,
     // or change them to 0 which will show the landedBoard. 
     if ((animationFrameCount % 10) == 0) {
+        uint8_t row;
         // Change the color of the lines to clear
-        if (*color == 8) {
+        if (state->fallingBoard[rowsToClearArr[0]][0] == 8) {
             for (int i = 0; rowsToClearArr[i] != -1 && i < 4; i++) {
-                toggleRowColor(fallingBoard,rowsToClearArr[i],*color);
+                toggleRowColor(state->fallingBoard,rowsToClearArr[i],0);
             }
-            *color = 0;
         } else {
             for (int i = 0; rowsToClearArr[i] != -1 && i < 4; i++) {
-               toggleRowColor(fallingBoard,rowsToClearArr[i],*color);
+               toggleRowColor(state->fallingBoard,rowsToClearArr[i],8);
             }
-           *color = 8;
         }   
     }
     // Animation is done after 50 frames, return to the main game loop.
     if (animationFrameCount > 50) {
-        clearLineRows(landedBoard,rowsToClearArr);
+        clearLineRows(state->landedBoard,rowsToClearArr);
         animationFrameCount = 0;
-        gameState = MAIN_GAME_LOOP;
+        state->state = MAIN_GAME_LOOP;
     }
 }
 
 
-void transitionBackgroundHue() { 
+void transitionBackgroundHue(Color* backgroundColor) { 
     int MAX_RED = 213;
     int MAX_GREEN = 217;
     int MAX_BLUE = 224;
@@ -547,19 +505,19 @@ void transitionBackgroundHue() {
     int MIN_GREEN = 120;
     int MIN_BLUE = 180;
     
-    if (backgroundColor.r == MAX_RED && backgroundColor.g == MAX_GREEN && backgroundColor.b == MAX_BLUE) {
+    if (backgroundColor->r == MAX_RED && backgroundColor->g == MAX_GREEN && backgroundColor->b == MAX_BLUE) {
         colorFadeDir = -1;
-    } else if (backgroundColor.r == MIN_RED && backgroundColor.g == MIN_GREEN && backgroundColor.b == MIN_BLUE) {
+    } else if (backgroundColor->r == MIN_RED && backgroundColor->g == MIN_GREEN && backgroundColor->b == MIN_BLUE) {
         colorFadeDir = 1;
     }
 
-    backgroundColor.r += colorFadeDir;
-    backgroundColor.g += colorFadeDir;
-    backgroundColor.b += colorFadeDir;
+    backgroundColor->r += colorFadeDir;
+    backgroundColor->g += colorFadeDir;
+    backgroundColor->b += colorFadeDir;
     // Clamp our color values to ensure they stay between our desired range.
-    backgroundColor.r = Clamp(backgroundColor.r,MIN_RED,MAX_RED);
-    backgroundColor.g = Clamp(backgroundColor.g,MIN_GREEN,MAX_GREEN);
-    backgroundColor.b = Clamp(backgroundColor.b,MIN_BLUE,MAX_BLUE); 
+    backgroundColor->r = Clamp(backgroundColor->r,MIN_RED,MAX_RED);
+    backgroundColor->g = Clamp(backgroundColor->g,MIN_GREEN,MAX_GREEN);
+    backgroundColor->b = Clamp(backgroundColor->b,MIN_BLUE,MAX_BLUE); 
     
 }
 
