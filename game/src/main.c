@@ -13,10 +13,17 @@
 #include <time.h>
 #include <stdint.h>
 
+//#define PLATFORM_WEB 1
+
+#if defined(PLATFORM_WEB)
+    #include "emscripten/emscripten.h"
+#endif
+
+
 // Function prototypes 
-void renderGraphics(State* screen);
-void getInput(State* state,int* moveFrameCount);
-void initGameState(State* state);
+void renderGraphics(void);
+void getInput(void);
+void update(void);
 
 // Textures 
 Texture2D gameboardUI;
@@ -29,18 +36,17 @@ Texture2D hitEnterText;
 Texture2D levelText;
 RenderTexture2D target;
 
+State* state;
+int exitFlag = 0;
+
 int main(void)
 { 
-    int exitFlag = 0;
-    int moveFrameCount = 0;  
-
-    // Initialize the game state.
-    State* gameState = malloc(sizeof(State));
-    initGameState(gameState);
-
     srand(time(NULL));
+
+    state = malloc(sizeof(State));
+    state->startLevel = 7;
+    initState(state);
     // Get our first piece.
-    getNewPiece(gameState->nextPiece);
 
     // Enable config flags for resizable window and vertical synchro
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
@@ -61,77 +67,68 @@ int main(void)
     // Render texture initialization, used to hold the rendering result so we can easily resize it
     target = LoadRenderTexture(SCREEN_W, SCREEN_H); 
     SetTextureFilter(target.texture, TEXTURE_FILTER_BILINEAR);  // Texture scale filter to use
-
     SetTargetFPS(60);  // Set our game to run at 60 frames-per-second
-    
-    // Main game loop
-    while (!WindowShouldClose() && !exitFlag)
-    {
-        gameState->speed = levelSpeedArr[gameState->level];
-        // Get all the input for this current frame.
-        getInput(gameState,&moveFrameCount);    
-        
-        // iterate the framecount
-        gameState->frameCount++;
-        
-        switch (gameState->state) {
-            case MAIN_GAME_LOOP:
-                gameState->state = MainGameLoop(gameState);
-                break;
-            case ANIMATION_MUZZLE_FLASH:
-                gameState->state = MuzzleFlash(gameState);
-                break;
-            case ANIMATION_CLEAR_BLOCKS:
-                gameState->state = ClearBlocks(gameState);
-                break;
-            case GAME_OVER:
-                gameState->state = GameOver(gameState);
-                break;
-            case TITLE_SCREEN:
-                gameState->state = TitleScreen(gameState);
-                break;
-            case EXIT:
-                exitFlag = TRUE;
-                break;
+
+    #if defined(PLATFORM_WEB)
+        emscripten_set_main_loop(update, 0, 1);
+    #else
+        // Main game loop
+        while (!WindowShouldClose() && !exitFlag)
+        {
+            update();
         }
-       renderGraphics(gameState);      
+    #endif
+    if (exitFlag == 1 || WindowShouldClose()) {
+        // De-Initialization
+        UnloadRenderTexture(target);        // Unload render texture
+        CloseWindow();                      // Close window and OpenGL context
     }
 
-    // De-Initialization
-    UnloadRenderTexture(target);        // Unload render texture
-    CloseWindow();                      // Close window and OpenGL context
-    free(gameState->fallingBoard);
-    free(gameState->landedBoard);
-    free(gameState);
+    free(state->currentPiece);
+    free(state->nextPiece);
+    free(state->landedBoard);
+    free(state->fallingBoard);
+    free(state);
+    
     return 0;
 }
 
-
 /**
-* FUNCTION: initGameState() 
-* DESCRIPTION: Sets up all the initial values for everything in the State struct.
+* FUNCTION: update() 
+* DESCRIPTION: Executes one game loop iteration.
+* We start by getting input, then calculating the game state and finally rendering the frame.
 */ 
-void initGameState(State* state) {
-    state->moveVec.x = 0;
-    state->moveVec.y = 0;
-    state->x = START_X;
-    state->y = START_Y;
-    state->wishRotate = 0;
-    state->fastFallSpeed = 1;
-    state->speed = levelSpeedArr[state->level];
-    state->state = TITLE_SCREEN;
-    state->titleScreenBackground = ((Color) {221,208,242,255});
-    state->lines = 0;
-    state->score = 0;
-    state->scoreToAdd = 0;
-    state->level = 7;
-    for (int i = 0; i < 4; i++) 
-        state->rowsToClearArr[i] = -1;
-        
-    state->landedBoard = calloc(4,sizeof(int[ROWS][COLUMNS]));
-    state->fallingBoard = calloc(4,sizeof(int[ROWS][COLUMNS])); 
-    state->currentPiece = calloc(4,sizeof(int[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
-    state->nextPiece = calloc(4,sizeof(int[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
+void update(void) {
+    // Get all the input for this current frame.
+    getInput();    
+    // iterate the framecount
+    state->frameCount++;
+    switch (state->state) {
+        case MAIN_GAME_LOOP:
+            state->state = MainGameLoop(state);
+            break;
+        case ANIMATION_MUZZLE_FLASH:
+            state->state = MuzzleFlash(state);
+            break;
+        case ANIMATION_CLEAR_BLOCKS:
+            state->state = ClearBlocks(state);
+            break;
+        case GAME_OVER:
+            state->state = GameOver(state);
+            break;
+        case TITLE_SCREEN:
+            state->state = TitleScreen(state);
+            // Check the state value immediately, so we don't draw the screen as we're exiting.
+            if (state->state == EXIT) {
+                exitFlag = 1;
+                return;
+            } 
+            break;
+        case EXIT:
+            break;
+    }
+    
+    renderGraphics();  
 }
 
 
@@ -139,22 +136,22 @@ void initGameState(State* state) {
 * FUNCTION: renderGraphics() 
 * DESCRIPTION: render the graphics to the screen.
 */ 
-void renderGraphics(State* state) {
+void renderGraphics(void) {
     // Compute required framebuffer scaling   
     float scale = MIN((float)GetScreenWidth()/SCREEN_W,(float)GetScreenHeight()/SCREEN_H);
     switch (state->state) { 
         case TITLE_SCREEN:
-        BeginTextureMode(target);
-            ClearBackground(state->titleScreenBackground);
-            drawTitleScreen(state);
-        EndTextureMode();
+            BeginTextureMode(target);
+                ClearBackground(state->titleScreenBackground);
+                drawTitleScreen(state->startLevel);
+            EndTextureMode();
         break;
         default:
-        // Begin texture mode to draw to the target (essentially acts as a canvas)
-        BeginTextureMode(target);
-            DrawTexture(gameboardUI,0,0,WHITE); 
-            drawGameState(state);
-        EndTextureMode();
+            // Begin texture mode to draw to the target (essentially acts as a canvas)
+            BeginTextureMode(target);
+                DrawTexture(gameboardUI,0,0,WHITE); 
+                drawGameState(state);
+            EndTextureMode();
         break;
     }
     BeginDrawing();
@@ -171,19 +168,19 @@ void renderGraphics(State* state) {
 * NOTE: moveFrameCount is used to ensure that holding down the left and right keys
 *       move the piece at a manageable speed. 
 */ 
-void getInput(State* state,int *moveFrameCount) {
+void getInput(void) {
         // reset input-related variables
         state->moveVec.x = 0;
         state->moveVec.y = 0;
         state->wishRotate = FALSE;
         if (IsKeyPressed(KEY_LEFT)) {
             state->moveVec.x -= 1;
-            *moveFrameCount = 0;
+            state->moveFrameCount = 0;
         }
         else if (IsKeyDown(KEY_LEFT)) {
-           (*moveFrameCount)++;
-            if (*moveFrameCount > 8) {
-                *moveFrameCount = 0;
+           state->moveFrameCount++;
+            if (state->moveFrameCount > 8) {
+                state->moveFrameCount = 0;
                 state->moveVec.x -= 1;
             } else {
                 state->moveVec.x = 0;
@@ -194,9 +191,9 @@ void getInput(State* state,int *moveFrameCount) {
             state->moveVec.x += 1;
         }
         else if (IsKeyDown(KEY_RIGHT)) {
-            (*moveFrameCount)++;
-            if (*moveFrameCount > 8) {
-                *moveFrameCount = 0;  
+            state->moveFrameCount++;
+            if (state->moveFrameCount > 8) {
+                state->moveFrameCount = 0;  
                 state->moveVec.x += 1;
             } else {
                 state->moveVec.x = 0;

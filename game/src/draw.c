@@ -1,8 +1,10 @@
 #include "raylib.h"
 #include "headers/globals.h"
 #include "headers/draw.h"
+#include "headers/state.h"
 #include <stdio.h>
 #include <math.h>
+
 
 
 /**
@@ -12,13 +14,18 @@
 void drawGameState(State *state) {
     // Draw the UI texture to screen, properly scaled
     drawScore(state->score);
-    drawLevel(state->level,60,120);   
+    drawLevel(state->level,60,120);  
     drawBoard(state->landedBoard);
     drawBoard(state->fallingBoard);
     drawNextPiece(state);
+    
 }
 
-
+/**
+* FUNCTION: drawSpriteCentered() 
+* DESCRIPTION: Draws a sprite at the specifided x,y positio, with x,y being relative
+* to the sprite's center.  
+*/ 
 void drawSpriteCentered(Texture2D texture, int x, int y,float scale) {
     if (scale <= 0)
         scale = 1;
@@ -31,13 +38,17 @@ void drawSpriteCentered(Texture2D texture, int x, int y,float scale) {
     WHITE);
 }
 
-void drawTitleScreen(State* state) {
+/**
+* FUNCTION: drawTitleScreen()
+* DESCRIPTION: Draws the title screen.
+*/ 
+void drawTitleScreen(uint8_t level) {
     drawSpriteCentered(githubLink,SCREEN_W/2,20,1);
     drawSpriteCentered(titleText,SCREEN_W/2,100,1);
     drawSpriteCentered(hitEnterText,SCREEN_W/2,SCREEN_H/2,1);
     drawSpriteCentered(levelSelectInfoText,SCREEN_W/2,SCREEN_H/2 + 50,1);
     drawSpriteCentered(levelText,SCREEN_W/2 - 280,SCREEN_H/2 + 300,2);
-    drawLevel(state->level,SCREEN_W/2 - 160,SCREEN_H/2 + 288); 
+    drawLevel(level,SCREEN_W/2 - 160,SCREEN_H/2 + 288); 
 }
 
 
@@ -45,8 +56,7 @@ void drawTitleScreen(State* state) {
 * FUNCTION: drawScore() 
 * DESCRIPTION: Draws the current score to the screen.
 */ 
-void drawScore(int score) {
-    int digit = 0;
+void drawScore(uint32_t score) {
     int digitArr[6] = {0,0,0,0,0,0};
     int index = 5;
     uint32_t scoreCpy = score;
@@ -97,8 +107,10 @@ void drawLevel(int level,int x, int y) {
 void drawBoard(uint8_t (*board)[ROWS]) {
     for (int row = 3; row < ROWS; row++) {
         for (int col = 0; col < COLUMNS; col++) {
-            if (board[row][col] != 0)      
-            drawBlock(col,row - 3,board[row][col]);
+            if (board[row][col] != 0)  {
+                 drawBlock(col,row - 3,board[row][col]);
+            }   
+           
         }
     }
 }

@@ -1,5 +1,6 @@
 #include "headers/globals.h"
 #include "headers/board.h"
+#include "headers/state.h"
 #include "raymath.h"
 #include <string.h>
 #include <stdlib.h>
@@ -10,13 +11,55 @@ void addScore(State* state);
 GameStateEnum playClearAnimation(State* state);
 void transitionBackgroundHue(Color* backgroundColor);
 
-// Global state variables )
+// Global state variables 
 int colorFadeDir = -1;
 uint8_t row = 0;
 uint8_t col = 0;
 uint8_t color = 1; // start at 1 because 0 will just display nothing.
 uint16_t animationFrameCounter = 0;
 Color titleScreenBackground;
+
+void setupDefaultValues(State* state) {
+    state->moveVec.x = 0;
+    state->moveVec.y = 0;
+    state->x = START_X;
+    state->y = START_Y;
+    state->wishRotate = 0;
+    state->fastFallSpeed = 1;
+    state->speed = levelSpeedArr[state->level];
+    state->state = TITLE_SCREEN;
+    state->titleScreenBackground = ((Color) {221,208,242,255});
+    state->lines = 0;
+    state->score = 0;
+    state->scoreToAdd = 0;
+    state->level = state->startLevel;
+    state->newPiece = TRUE;
+    for (int i = 0; i < 4; i++) 
+        state->rowsToClearArr[i] = -1;
+}
+
+/**
+* FUNCTION: initGameState() 
+* DESCRIPTION: Sets up all the initial values for everything in the State struct.
+*/ 
+void initState(State* state) {
+    setupDefaultValues(state);
+    state->landedBoard = (uint8_t (*)[23])calloc(ROWS*COLUMNS,sizeof(uint8_t*));
+    state->fallingBoard = (uint8_t (*)[23])calloc(ROWS*COLUMNS,sizeof(uint8_t*)); 
+    state->currentPiece = (uint8_t (*)[4][4])calloc(ROTATION_COUNT*SHAPE_SIZE*SHAPE_SIZE,sizeof(uint8_t*));
+    state->nextPiece = (uint8_t (*)[4][4])calloc(ROTATION_COUNT*SHAPE_SIZE*SHAPE_SIZE,sizeof(uint8_t*));
+    getNewPiece(state->nextPiece);
+}
+
+/**
+* FUNCTION: resetState() 
+* DESCRIPTION: resets the gamestate to match the default values.
+*/ 
+void resetState(State* state) {
+   setupDefaultValues(state);
+   clearBoard(state->fallingBoard);
+   clearBoard(state->landedBoard);
+}
 
 /**
 * FUNCTION: MainGameLoop() 
@@ -29,7 +72,7 @@ GameStateEnum MainGameLoop(State* state) {
         state->frameCount = 0;
         state->moveVec.y = 1;
     }
-
+    
     // Create a new Piece
     if (state->newPiece) {
         clearBoard(state->fallingBoard);
@@ -39,7 +82,7 @@ GameStateEnum MainGameLoop(State* state) {
         state->newPiece = FALSE;
         state->newRotation = 0;
         state->rotation = state->newRotation;
-        memcpy(state->currentPiece,state->nextPiece,sizeof(int[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
+        memcpy(state->currentPiece,state->nextPiece,sizeof(uint8_t[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
         getNewPiece(state->nextPiece);
         // check if we're colliding at the start x/y; this is the game over condition 
         if (colliding(state->x,state->y,state->currentPiece[state->newRotation],state->landedBoard)) {
@@ -76,11 +119,16 @@ GameStateEnum MainGameLoop(State* state) {
 
     if (checkLineClears(state->landedBoard,state->rowsToClearArr) == TRUE) {
         // Add up our lines
+        uint8_t linesClearedThisFrame = 0;
         for (int i = 0; state->rowsToClearArr[i] != -1 && i < 4; i++) {
-            state->lines = i + 1;
+            linesClearedThisFrame++;
         }
-        state->scoreToAdd = doScoreCalculations(state->lines,state->level);
-        if (state->lines % 10 == 0) {
+        //
+        state->nextScore = doScoreCalculations(linesClearedThisFrame,state->level) + state->score;
+    
+        state->lines += linesClearedThisFrame;
+        if (state->lines >= 10) {
+            state->lines = 0;
             state->level++;
             state->speed = levelSpeedArr[state->level];
         }
@@ -117,7 +165,6 @@ GameStateEnum ClearBlocks(State* state) {
     // every 10 frames we should either change all lines to clear white,
     // or change them to 0 which will show the landedBoard. 
     if ((animationFrameCounter % 10) == 0) {
-        uint8_t row;
         // Change the color of the lines to clear
         if (state->fallingBoard[state->rowsToClearArr[0]][0] == 8) {
             for (int i = 0; state->rowsToClearArr[i] != -1 && i < 4; i++) {
@@ -140,7 +187,15 @@ GameStateEnum ClearBlocks(State* state) {
         animationFrameCounter = 0;
         return MAIN_GAME_LOOP;
     }
-    addScore(state);
+    
+   if (state->score >= state->nextScore)  {
+        state->score = state->nextScore;
+   } else {
+       state->score += state->nextScore / 50;
+   }
+    
+
+        
     
     return ANIMATION_CLEAR_BLOCKS;
 }
@@ -154,11 +209,8 @@ GameStateEnum ClearBlocks(State* state) {
 GameStateEnum GameOver(State* state) {
    animationFrameCounter++;
     if (animationFrameCounter > 140) {
-        clearBoard(state->fallingBoard);
-        clearBoard(state->landedBoard);
-        row = 0;
-        col = 0;
-        state->score = 0;
+        row = 0; col = 0;
+        resetState(state);
         animationFrameCounter = 0;
         return MAIN_GAME_LOOP; 
     } else {
@@ -190,16 +242,18 @@ GameStateEnum GameOver(State* state) {
 * RETURNS: Returns the next state.
 */ 
 GameStateEnum TitleScreen(State* state) {
-    if (IsKeyPressed(KEY_ENTER)) 
+    if (IsKeyPressed(KEY_ENTER)) {
+        resetState(state);
         return MAIN_GAME_LOOP;
+    }
     if (IsKeyPressed(KEY_LEFT)) {
-        state->level--;
-        if (state->level < 0) 
-            state->level = MAX_LEVEL;
+        state->startLevel--;
+        if (state->startLevel < 0) 
+            state->startLevel= MAX_LEVEL;
     } else if (IsKeyPressed(KEY_RIGHT)) {
-        state->level++;
-        if (state->level == MAX_LEVEL + 1)
-            state->level = 0;
+        state->startLevel++;
+        if (state->startLevel == MAX_LEVEL + 1)
+            state->startLevel = 0;
     }
     if (IsKeyPressed(KEY_ESCAPE)) {
         return EXIT;
@@ -244,7 +298,7 @@ void transitionBackgroundHue(Color* backgroundColor) {
 * DESCRIPTION: returns the score to add based on the number of lines the player has cleared.
 */ 
 uint32_t doScoreCalculations(uint8_t lines, int level) {
-    uint32_t scoreToAdd;
+    uint32_t scoreToAdd = 0;
     switch (lines) {
         case 1:
             scoreToAdd = (40 * (level + 1));
@@ -261,71 +315,4 @@ uint32_t doScoreCalculations(uint8_t lines, int level) {
     }
     return scoreToAdd;
     
-}
-
-
-/**
-* FUNCTION: addScore(int* newScore) 
-* DESCRIPTION: Gradually adds up our score untill we get to our desired new score value.
-*/ 
-void addScore(State* state) {
-    if (state->score < (state->scoreToAdd + state->score)) {
-        /* scale the speed at which we tally up our points based on the value of newScore.
-        *  We do need to ensure that the time it takes to tally up score is not greater than the time it
-        *  takes to complete the line clearing animation, because the player could overwrite newScore while we
-        *  are tallying up the points if it is not fast enough. */  
-        if (state->scoreToAdd < 10) {
-            state->score += 1;
-        }
-        else if (state->scoreToAdd <= 400) {
-            state->score += 6;
-        }
-        else if (state->scoreToAdd <= 1200) {
-            (state->score) += 32;
-        }
-        else if (state->scoreToAdd < 2000) {
-            (state->score) += 100;
-        }
-        else if (state->scoreToAdd < 10000) {
-            (state->score) += 1000;
-        }
-        else {
-            state->score = state->scoreToAdd + state->score;
-            state->scoreToAdd = 0;
-        }
-    }
-    printf("Score: %d\nScoreToAdd:  %d\n",state->score,state->scoreToAdd);
-}
-
-
-/**
-* FUNCTION: playClearAnimation()
-* DESCRIPTION: Plays the clear animation
-*/ 
-GameStateEnum playClearAnimation(State* state) {
-    animationFrameCounter++;
-    // every 10 frames we should either change all lines to clear white,
-    // or change them to 0 which will show the landedBoard. 
-    if ((animationFrameCounter % 10) == 0) {
-        uint8_t row;
-        // Change the color of the lines to clear
-        if (state->fallingBoard[state->rowsToClearArr[0]][0] == 8) {
-            for (int i = 0; state->rowsToClearArr[i] != -1 && i < 4; i++) {
-                toggleRowColor(state->fallingBoard,state->rowsToClearArr[i],0);
-            }
-        } else {
-            for (int i = 0; state->rowsToClearArr[i] != -1 && i < 4; i++) {
-               toggleRowColor(state->fallingBoard,state->rowsToClearArr[i],8);
-            }
-        }   
-    }
-    // Animation is done after 50 frames, return to the main game loop.
-    if (animationFrameCounter > 50) {
-        clearLineRows(state->landedBoard,state->rowsToClearArr);
-        animationFrameCounter = 0;
-        return MAIN_GAME_LOOP;
-    }
-    addScore(state);
-    
-    return ANIMATION_CLEAR_BLOCKS;
 }

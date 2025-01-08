@@ -34,33 +34,6 @@ typedef enum GameStateEnum {
     EXIT,
 } GameStateEnum;
 
-typedef struct State {
-    Vector2 moveVec;
-    int x;
-    int y;
-    bool wishRotate;
-    bool newPiece;
-    uint8_t rotation;
-    uint8_t newRotation;
-    uint8_t speed;
-    uint8_t fastFallSpeed;
-    GameStateEnum state;
-    Color titleScreenBackground;
-    uint16_t frameCount;
-    uint8_t lines;
-    uint8_t level;
-    uint16_t score;
-    uint16_t scoreToAdd;
-    int8_t rowsToClearArr[4];
-
-    // Board 
-    uint8_t (*fallingBoard)[ROWS];
-    uint8_t (*landedBoard)[ROWS];
-    uint8_t (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE];
-    uint8_t (*currentPiece)[SHAPE_SIZE][SHAPE_SIZE];
-
-} State;
-
 #define SPEED_LV_0 48
 #define LV_SPEED_ARR_LENGTH 30
 #define MAX_LEVEL 29

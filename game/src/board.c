@@ -1,6 +1,7 @@
 #include "headers/board.h"
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 /**
 * FUNCTION: writeBlocks() 
@@ -11,10 +12,10 @@
 *          or will have non-zero values outside the board
 */
 int writeBlocks(int x, int y, uint8_t block[][SHAPE_SIZE], uint8_t board[][ROWS], int flashPiece) {
-    int offsetRow,offsetCol;
+    uint8_t offsetRow,offsetCol;
     // Loop through 
-    for (int row = 0; row < SHAPE_SIZE; row++) {
-        for (int col = 0; col < SHAPE_SIZE; col++) {      
+    for (uint8_t row = 0; row < SHAPE_SIZE; row++) {
+        for (uint8_t col = 0; col < SHAPE_SIZE; col++) {      
             if (block[row][col] > 0) {
                 offsetRow = row + y; 
                 offsetCol = col + x;
@@ -41,10 +42,10 @@ int writeBlocks(int x, int y, uint8_t block[][SHAPE_SIZE], uint8_t board[][ROWS]
 *         2 if being placed outside the game board.
 *         0/false if no collisions.
 */ 
-int colliding(int x, int y, uint8_t block[][SHAPE_SIZE], uint8_t board[][ROWS]) {
-    int offsetRow,offsetCol;
-    for (int row = 0; row < SHAPE_SIZE; row++) {
-        for (int col = 0; col < SHAPE_SIZE; col++) {
+int colliding(int x, int y, uint8_t (*block)[SHAPE_SIZE], uint8_t (*board)[ROWS]) {
+    uint8_t offsetRow,offsetCol;
+    for (uint8_t row = 0; row < SHAPE_SIZE; row++) {
+        for (uint8_t col = 0; col < SHAPE_SIZE; col++) {
             offsetRow = row + y; 
             offsetCol = col + x; 
             // if we are attemping to place a piece outside the array in the X dimension
@@ -64,9 +65,9 @@ int colliding(int x, int y, uint8_t block[][SHAPE_SIZE], uint8_t board[][ROWS]) 
 * FUNCTION: clearBoard() 
 * DESCRIPTION: Clears the specified board.
 */ 
-void clearBoard(uint8_t board[][ROWS]) {
-    for (int row = 0; row < ROWS; row++) {
-        for (int col = 0; col < COLUMNS; col++) {
+void clearBoard(uint8_t (*board)[ROWS]) {
+    for (uint8_t row = 0; row < ROWS; row++) {
+        for (uint8_t col = 0; col < COLUMNS; col++) {
             board[row][col] = 0;
         }
     }
@@ -79,10 +80,10 @@ void clearBoard(uint8_t board[][ROWS]) {
 * RETURN: TRUE if there is one or moe lines to clear.
 *         FALSE if no full rows are found.
 */ 
-int checkLineClears(uint8_t board[][ROWS], int8_t rowToClearArr[4]) {
-    int count = 0; 
-    int lineCount = 0;
-    for (int row = 0; row < ROWS; row++) {
+int checkLineClears(uint8_t(*board)[ROWS], int8_t rowToClearArr[4]) {
+    uint8_t count = 0; 
+    uint8_t lineCount = 0;
+    for (uint8_t row = 0; row < ROWS; row++) {
         count = 0;
         for (int col = 0; col < COLUMNS; col++) {
             if (board[row][col] > 0) {
@@ -104,10 +105,10 @@ int checkLineClears(uint8_t board[][ROWS], int8_t rowToClearArr[4]) {
 * FUNCTION: toggleRowColor() 
 * DESCRIPTION: Toggles the color of an entire row.
 */ 
-void toggleRowColor(uint8_t board[][ROWS], int row, int color) {
-        for (int col = 0; col < COLUMNS; col++) {
-            board[row][col] = color;
-        }
+void toggleRowColor(uint8_t (*board)[ROWS], int row, int color) {
+    for (uint8_t col = 0; col < COLUMNS; col++) {
+        board[row][col] = color;
+    }
 }
 
 
@@ -115,14 +116,14 @@ void toggleRowColor(uint8_t board[][ROWS], int row, int color) {
 * FUNCTION: clearBoard() 
 * DESCRIPTION: Clears all rows on the board at the Y positions specified in rowsToClear.
 */ 
-void clearLineRows(uint8_t board[][ROWS], int8_t rowsToClear[4]) {
-    int count = 0;
+void clearLineRows(uint8_t (*board)[ROWS], int8_t rowsToClear[4]) {
+    uint8_t count = 0;
     for (count = 0; (count < 4); count++) {
         if (rowsToClear[count] == -1) {
             return;
         }
-        for (int row = rowsToClear[count]; row > 2; row--) {
-            for (int col = 0; col < COLUMNS; col++) {
+        for (uint8_t row = rowsToClear[count]; row > 2; row--) {
+            for (uint8_t col = 0; col < COLUMNS; col++) {
                 board[row][col] = board[row - 1][col];
             }
         }

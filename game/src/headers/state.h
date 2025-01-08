@@ -1,7 +1,38 @@
 #ifndef STATE_H
 #define STATE_H
-#include "globals.h"
 
+typedef struct State {
+    Vector2 moveVec;
+    int x;
+    int y;
+    bool wishRotate;
+    bool newPiece;
+    uint8_t rotation;
+    uint8_t newRotation;
+    uint8_t speed;
+    uint8_t fastFallSpeed;
+    GameStateEnum state;
+    Color titleScreenBackground;
+    uint16_t frameCount;
+    uint8_t lines;
+    int8_t level;
+    int8_t startLevel;
+    uint32_t score;
+    uint32_t scoreToAdd;
+    uint32_t nextScore; 
+    int8_t rowsToClearArr[4];
+    uint8_t moveFrameCount;  
+
+    // Board 
+    uint8_t (*fallingBoard)[ROWS];
+    uint8_t (*landedBoard)[ROWS];
+    uint8_t (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE];
+    uint8_t (*currentPiece)[SHAPE_SIZE][SHAPE_SIZE];
+
+} State;
+
+void initState(State* state);
+void resetState(State* state);
 GameStateEnum MainGameLoop(State* state);
 GameStateEnum MuzzleFlash(State* state);
 GameStateEnum ClearBlocks(State* state);
