@@ -13,19 +13,13 @@
 #include <time.h>
 #include <stdint.h>
 
-//#define PLATFORM_WEB 1
-
-#if defined(PLATFORM_WEB)
-    #include "emscripten/emscripten.h"
-#endif
-
 
 // Function prototypes 
 void renderGraphics(void);
 void getInput(void);
 void update(void);
 
-// Textures 
+// Global Textures 
 Texture2D gameboardUI;
 Texture2D blocksSpriteSheet;
 Texture2D digitsSpriteSheet;
@@ -34,15 +28,15 @@ Texture2D githubLink;
 Texture2D levelSelectInfoText;
 Texture2D hitEnterText;
 Texture2D levelText;
-RenderTexture2D target;
+RenderTexture2D target; 
 
+// Globals
 State* state;
 int exitFlag = 0;
 
 int main(void)
 { 
     srand(time(NULL));
-
     state = malloc(sizeof(State));
     state->startLevel = 7;
     initState(state);
@@ -51,7 +45,7 @@ int main(void)
     // Enable config flags for resizable window and vertical synchro
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
     InitWindow(SCREEN_W, SCREEN_H, "Tetris");
-    // Move from bin/Debug to tetris
+    
     gameboardUI = LoadTexture("resources/tetris-ui.png");
     blocksSpriteSheet = LoadTexture("resources/blocks.png");
     digitsSpriteSheet = LoadTexture("resources/digits.png");
@@ -60,6 +54,7 @@ int main(void)
     levelSelectInfoText = LoadTexture("resources/select-level-text.png");
     levelText = LoadTexture("resources/level-text.png");
     hitEnterText = LoadTexture("resources/hit-enter-text.png");
+
     SetWindowMinSize(320, 240);
     SetWindowSize(SCREEN_W,SCREEN_H);
     SetExitKey(KEY_NULL); // we define our own exit behavior in TitleScreen
@@ -77,15 +72,13 @@ int main(void)
         {
             update();
         }
-    #endif
-    if (exitFlag == 1 || WindowShouldClose()) {
-        // De-Initialization
-        UnloadRenderTexture(target);        // Unload render texture
-        CloseWindow();                      // Close window and OpenGL context
-    }
 
-    free(state->currentPiece);
-    free(state->nextPiece);
+    #endif
+
+    // De-Initialization
+    UnloadRenderTexture(target);        // Unload render texture
+    CloseWindow();                      // Close window and OpenGL context
+    
     free(state->landedBoard);
     free(state->fallingBoard);
     free(state);
@@ -122,7 +115,17 @@ void update(void) {
             if (state->state == EXIT) {
                 exitFlag = 1;
                 return;
-            } 
+            }
+            /* 
+            for (int i = 0; i < 4; i++) {
+                for (int j = 0; j < 4; j++) {
+                    for (int k = 0; k < 4; k++) {
+                        printf("%d,",(*pieceMapArr[4])[i][j][k]);
+                    }       
+                    printf("\n");
+                }
+            }
+            */
             break;
         case EXIT:
             break;
@@ -202,13 +205,14 @@ void getInput(void) {
 
         if (IsKeyPressed(KEY_SPACE)) {
             state->wishRotate = TRUE;
-            state->newRotation++;
-            if (state->newRotation > 3) 
-                state->newRotation = 0;
+            state->nextRotation++;
+            if (state->nextRotation > 3) 
+                state->nextRotation = 0;
         }
         // If we wish to fastfall only do so when we are not about to collide in the Y direction
         // This is to make last-second adjustments feel consistent 
-        if (IsKeyDown(KEY_DOWN) && !(colliding(state->x,state->y + 1,state->currentPiece[state->rotation],state->landedBoard) > 0)) {
+        // TODO this should not be in input.Z
+        if (IsKeyDown(KEY_DOWN) && !(colliding(state->x,state->y + 1,(*pieceMapArr[state->currentPieceIndex])[state->rotation],state->landedBoard) > 0)) {
            state->speed = state->fastFallSpeed;
         }
         else {

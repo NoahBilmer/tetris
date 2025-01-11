@@ -11,7 +11,7 @@
 *          false if the piece is colliding with another piece
 *          or will have non-zero values outside the board
 */
-int writeBlocks(int x, int y, uint8_t block[][SHAPE_SIZE], uint8_t board[][ROWS], int flashPiece) {
+int writeBlocks(int x, int y, uint8_t block[SHAPE_SIZE][SHAPE_SIZE], uint8_t (*board)[ROWS], int flashPiece) {
     uint8_t offsetRow,offsetCol;
     // Loop through 
     for (uint8_t row = 0; row < SHAPE_SIZE; row++) {
@@ -42,7 +42,7 @@ int writeBlocks(int x, int y, uint8_t block[][SHAPE_SIZE], uint8_t board[][ROWS]
 *         2 if being placed outside the game board.
 *         0/false if no collisions.
 */ 
-int colliding(int x, int y, uint8_t (*block)[SHAPE_SIZE], uint8_t (*board)[ROWS]) {
+int colliding(int x, int y, uint8_t block[SHAPE_SIZE][SHAPE_SIZE], uint8_t (*board)[ROWS]) {
     uint8_t offsetRow,offsetCol;
     for (uint8_t row = 0; row < SHAPE_SIZE; row++) {
         for (uint8_t col = 0; col < SHAPE_SIZE; col++) {
@@ -132,36 +132,8 @@ void clearLineRows(uint8_t (*board)[ROWS], int8_t rowsToClear[4]) {
 
 /**
 * FUNCTION: getNewPiece() 
-* DESCRIPTION: Randomly selects a new piece to copy to the provided memory address.
+* DESCRIPTION: Randomly selects a new piece index.
 */ 
-void getNewPiece(uint8_t (*piece)[SHAPE_SIZE][SHAPE_SIZE]) {
-    uint8_t pieceIndex = (rand() % 7) + 1;
-    uint8_t (*newPiece)[SHAPE_SIZE][SHAPE_SIZE];
-    switch (pieceIndex) {
-        case 1:
-            newPiece = i_block;
-            break;
-        case 2:
-            newPiece = o_block;
-            break;
-        case 3:
-            newPiece = j_block;
-            break;
-        case 4:
-            newPiece = l_block;
-            break;
-        case 5:
-            newPiece = s_block;
-            break;
-        case 6:
-            newPiece = z_block;
-            break;
-        case 7:
-            newPiece = t_block;
-            break;
-    }
-    // Copy the piece
-    memcpy(piece,newPiece,sizeof(uint8_t[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
+uint8_t getNewPieceIndex() {
+    return (rand() % 7);
 }
-
-

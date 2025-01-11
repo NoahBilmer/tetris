@@ -11,7 +11,7 @@ void addScore(State* state);
 GameStateEnum playClearAnimation(State* state);
 void transitionBackgroundHue(Color* backgroundColor);
 
-// Global state variables 
+// Global state variables; all used for animation purposes 
 int colorFadeDir = -1;
 uint8_t row = 0;
 uint8_t col = 0;
@@ -19,6 +19,10 @@ uint8_t color = 1; // start at 1 because 0 will just display nothing.
 uint16_t animationFrameCounter = 0;
 Color titleScreenBackground;
 
+/**
+* FUNCTION: setupDefaultValues() 
+* DESCRIPTION: Sets up all the default values for everything in the State struct.
+*/ 
 void setupDefaultValues(State* state) {
     state->moveVec.x = 0;
     state->moveVec.y = 0;
@@ -44,11 +48,9 @@ void setupDefaultValues(State* state) {
 */ 
 void initState(State* state) {
     setupDefaultValues(state);
-    state->landedBoard = (uint8_t (*)[23])calloc(ROWS*COLUMNS,sizeof(uint8_t*));
+    state->landedBoard =  (uint8_t (*)[23])calloc(ROWS*COLUMNS,sizeof(uint8_t*));
     state->fallingBoard = (uint8_t (*)[23])calloc(ROWS*COLUMNS,sizeof(uint8_t*)); 
-    state->currentPiece = (uint8_t (*)[4][4])calloc(ROTATION_COUNT*SHAPE_SIZE*SHAPE_SIZE,sizeof(uint8_t*));
-    state->nextPiece = (uint8_t (*)[4][4])calloc(ROTATION_COUNT*SHAPE_SIZE*SHAPE_SIZE,sizeof(uint8_t*));
-    getNewPiece(state->nextPiece);
+    state->nextPieceIndex = getNewPieceIndex();
 }
 
 /**
@@ -80,31 +82,31 @@ GameStateEnum MainGameLoop(State* state) {
         state->y = START_Y;
         state->wishRotate = FALSE;
         state->newPiece = FALSE;
-        state->newRotation = 0;
-        state->rotation = state->newRotation;
-        memcpy(state->currentPiece,state->nextPiece,sizeof(uint8_t[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE]));
-        getNewPiece(state->nextPiece);
+        state->nextRotation = 0;
+        state->rotation = state->nextRotation;
+        state->currentPieceIndex = state->nextPieceIndex;
+        state->nextPieceIndex = getNewPieceIndex();
         // check if we're colliding at the start x/y; this is the game over condition 
-        if (colliding(state->x,state->y,state->currentPiece[state->newRotation],state->landedBoard)) {
+        if (colliding(state->x,state->y,(*pieceMapArr[state->currentPieceIndex])[state->rotation],state->landedBoard)) {
             return GAME_OVER;
         }
     }
             
     /*** Do all piece translations and or transformations ***/
     // Rotate the piece if we are not colliding 
-    if (state->wishRotate && colliding(state->x,state->y,state->currentPiece[state->newRotation],state->landedBoard) == 0) {
-            state->rotation = state->newRotation;
+    if (state->wishRotate && colliding(state->x,state->y,(*pieceMapArr[state->currentPieceIndex])[state->nextRotation],state->landedBoard) == 0) {
+            state->rotation = state->nextRotation;
     }
     // Move in the x direction if we are not colliding.
-    if (colliding(state->x + state->moveVec.x,state->y,state->currentPiece[state->rotation],state->landedBoard) == 0) {
+    if (colliding(state->x + state->moveVec.x,state->y,(*pieceMapArr[state->currentPieceIndex])[state->rotation],state->landedBoard) == 0) {
             state->x = state->x + state->moveVec.x;             
     }
     /* Move in the y direction if we are not colliding. */
-    if (colliding(state->x,state->y + state->moveVec.y,state->currentPiece[state->rotation],state->landedBoard) > 0) {
+    if (colliding(state->x,state->y + state->moveVec.y,(*pieceMapArr[state->currentPieceIndex])[state->rotation],state->landedBoard) > 0) {
         // Place this piece
         // create a new piece next iteration
         state->newPiece = TRUE; 
-        writeBlocks(state->x,state->y,state->currentPiece[state->rotation],state->landedBoard,FALSE);
+        writeBlocks(state->x,state->y,(*pieceMapArr[state->currentPieceIndex])[state->rotation],state->landedBoard,FALSE);
         return ANIMATION_MUZZLE_FLASH;
     }
     /* NOT colliding in the y dimension; move the piece down one.*/
@@ -114,7 +116,7 @@ GameStateEnum MainGameLoop(State* state) {
     // Write to the fallingBoard
     if (state->wishRotate == TRUE || state->moveVec.x != 0 || state->moveVec.y != 0) {
         clearBoard(state->fallingBoard);
-        writeBlocks(state->x,state->y,state->currentPiece[state->rotation],state->fallingBoard,FALSE);
+        writeBlocks(state->x,state->y,(*pieceMapArr[state->currentPieceIndex])[state->rotation],state->fallingBoard,FALSE);
     }
 
     if (checkLineClears(state->landedBoard,state->rowsToClearArr) == TRUE) {
@@ -146,7 +148,7 @@ GameStateEnum MainGameLoop(State* state) {
 GameStateEnum MuzzleFlash(State* state) {
     animationFrameCounter++;
     clearBoard(state->fallingBoard);
-    writeBlocks(state->x,state->y,state->currentPiece[state->rotation],state->fallingBoard,TRUE);
+    writeBlocks(state->x,state->y,(*pieceMapArr[state->currentPieceIndex])[state->rotation],state->fallingBoard,TRUE);
     if (animationFrameCounter > 1) {
         animationFrameCounter = 0;
         state->score += 2;
@@ -256,7 +258,9 @@ GameStateEnum TitleScreen(State* state) {
             state->startLevel = 0;
     }
     if (IsKeyPressed(KEY_ESCAPE)) {
-        return EXIT;
+        #ifndef PLATFORM_WEB
+             return EXIT;
+        #endif
     }
     transitionBackgroundHue(&state->titleScreenBackground);
     return TITLE_SCREEN;

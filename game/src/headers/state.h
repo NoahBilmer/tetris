@@ -8,7 +8,9 @@ typedef struct State {
     bool wishRotate;
     bool newPiece;
     uint8_t rotation;
-    uint8_t newRotation;
+    uint8_t nextRotation;
+    uint8_t currentPieceIndex;
+    uint8_t nextPieceIndex;
     uint8_t speed;
     uint8_t fastFallSpeed;
     GameStateEnum state;
@@ -26,8 +28,6 @@ typedef struct State {
     // Board 
     uint8_t (*fallingBoard)[ROWS];
     uint8_t (*landedBoard)[ROWS];
-    uint8_t (*nextPiece)[SHAPE_SIZE][SHAPE_SIZE];
-    uint8_t (*currentPiece)[SHAPE_SIZE][SHAPE_SIZE];
 
 } State;
 

@@ -4,6 +4,12 @@
 #include <stdint.h>
 #include "raylib.h"
 
+//#define PLATFORM_WEB 1
+
+#if defined(PLATFORM_WEB)
+    #include "emscripten/emscripten.h"
+#endif
+
 #define COLUMNS 10
 #define ROWS 23
 #define BOARD_START 3
@@ -245,6 +251,21 @@ static uint8_t t_block[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
         {0,7,7,0},
         {0,7,0,0}
     } 
+};
+
+typedef struct PieceMapRow {
+    uint8_t rotation;
+    uint8_t (*piece)[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE];
+} PieceMapRow;
+
+static uint8_t (*pieceMapArr[7])[ROTATION_COUNT][SHAPE_SIZE][SHAPE_SIZE] = {
+    &i_block,
+    &o_block,
+    &j_block,
+    &l_block,
+    &s_block,
+    &z_block,
+    &t_block,
 };
 
 
