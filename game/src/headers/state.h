@@ -5,6 +5,7 @@ typedef struct State {
     Vector2 moveVec;
     int x;
     int y;
+    bool wishFastFall;
     bool wishRotate;
     bool newPiece;
     uint8_t rotation;

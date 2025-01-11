@@ -138,8 +138,8 @@ void drawBlock(int x, int y, int color) {
 void drawNextPiece(State* state) { 
     for (int i = 0; i < SHAPE_SIZE; i++) {
             for (int j = 0; j < SHAPE_SIZE; j++) {
-                if ((*pieceMapArr[state->currentPieceIndex])[0][i][j] > 0) {
-                    drawBlock(13 + j,5 + i,(*pieceMapArr[state->currentPieceIndex])[0][i][j]);
+                if ((*pieceMapArr[state->nextPieceIndex])[0][i][j] > 0) {
+                    drawBlock(13 + j,5 + i,(*pieceMapArr[state->nextPieceIndex])[0][i][j]);
                 }
                     
             }

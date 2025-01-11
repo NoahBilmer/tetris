@@ -26,6 +26,7 @@ Color titleScreenBackground;
 void setupDefaultValues(State* state) {
     state->moveVec.x = 0;
     state->moveVec.y = 0;
+    state->wishFastFall = FALSE;
     state->x = START_X;
     state->y = START_Y;
     state->wishRotate = 0;
@@ -90,6 +91,12 @@ GameStateEnum MainGameLoop(State* state) {
         if (colliding(state->x,state->y,(*pieceMapArr[state->currentPieceIndex])[state->rotation],state->landedBoard)) {
             return GAME_OVER;
         }
+    }
+    if (state->wishFastFall && !(colliding(state->x,state->y + 1,(*pieceMapArr[state->currentPieceIndex])[state->rotation],state->landedBoard) > 0)) {
+        state->speed = state->fastFallSpeed;
+    }
+    else {
+        state->speed = levelSpeedArr[state->level];
     }
             
     /*** Do all piece translations and or transformations ***/
