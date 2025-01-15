@@ -13,7 +13,6 @@
 #include <time.h>
 #include <stdint.h>
 
-
 // Function prototypes 
 void renderGraphics(void);
 void getInput(void);
@@ -36,16 +35,24 @@ int exitFlag = 0;
 
 int main(void)
 { 
+    // Init the state structure.
     srand(time(NULL));
     state = malloc(sizeof(State));
-    state->startLevel = 7;
     initState(state);
-    // Get our first piece.
-
-    // Enable config flags for resizable window and vertical synchro
+    
+    // Enable config flags to support window resizing 
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
     InitWindow(SCREEN_W, SCREEN_H, "Tetris");
+    SetWindowMinSize(320, 240);
+    SetWindowSize(SCREEN_W,SCREEN_H);
+    SetExitKey(KEY_NULL); // we define our own exit behavior in TitleScreen()
+
+    // Render texture initialization, used to hold the rendering result so we can easily resize it
+    target = LoadRenderTexture(SCREEN_W, SCREEN_H); 
+    SetTextureFilter(target.texture, TEXTURE_FILTER_BILINEAR);  // Texture scale filter to use
+    SetTargetFPS(60);  // Set our game to run at 60 frames-per-second
     
+    // Load all the textures
     gameboardUI = LoadTexture("resources/tetris-ui.png");
     blocksSpriteSheet = LoadTexture("resources/blocks.png");
     digitsSpriteSheet = LoadTexture("resources/digits.png");
@@ -55,15 +62,7 @@ int main(void)
     levelText = LoadTexture("resources/level-text.png");
     hitEnterText = LoadTexture("resources/hit-enter-text.png");
 
-    SetWindowMinSize(320, 240);
-    SetWindowSize(SCREEN_W,SCREEN_H);
-    SetExitKey(KEY_NULL); // we define our own exit behavior in TitleScreen
-    
-    // Render texture initialization, used to hold the rendering result so we can easily resize it
-    target = LoadRenderTexture(SCREEN_W, SCREEN_H); 
-    SetTextureFilter(target.texture, TEXTURE_FILTER_BILINEAR);  // Texture scale filter to use
-    SetTargetFPS(60);  // Set our game to run at 60 frames-per-second
-
+    // Setup the main game loop based on the platform we are compiling for
     #if defined(PLATFORM_WEB)
         emscripten_set_main_loop(update, 0, 1);
     #else
@@ -75,7 +74,7 @@ int main(void)
 
     #endif
 
-    // De-Initialization
+    // Cleanup
     UnloadRenderTexture(target);        // Unload render texture
     CloseWindow();                      // Close window and OpenGL context
     
@@ -92,45 +91,38 @@ int main(void)
 * We start by getting input, then calculating the game state and finally rendering the frame.
 */ 
 void update(void) {
+    // iterate the frameCount; we use this value for keeping
+    // track of how much time has elapsed during animations.
+    state->frameCount++; 
+
     // Get all the input for this current frame.
     getInput();    
-    // iterate the framecount
-    state->frameCount++;
+    
     switch (state->state) {
         case MAIN_GAME_LOOP:
-            state->state = MainGameLoop(state);
+            state->state = mainGameLoop(state);
             break;
         case ANIMATION_MUZZLE_FLASH:
-            state->state = MuzzleFlash(state);
+            state->state = muzzleFlash(state);
             break;
         case ANIMATION_CLEAR_BLOCKS:
-            state->state = ClearBlocks(state);
+            state->state = clearBlocks(state);
             break;
         case GAME_OVER:
-            state->state = GameOver(state);
+            state->state = gameOver(state);
             break;
         case TITLE_SCREEN:
-            state->state = TitleScreen(state);
-            // Check the state value immediately, so we don't draw the screen as we're exiting.
+            state->state = titleScreen(state);
+            // Check the state value immediately, so we don't draw the screen for one frame before we exit.
             if (state->state == EXIT) {
                 exitFlag = 1;
                 return;
             }
-            /* 
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4; j++) {
-                    for (int k = 0; k < 4; k++) {
-                        printf("%d,",(*pieceMapArr[4])[i][j][k]);
-                    }       
-                    printf("\n");
-                }
-            }
-            */
             break;
         case EXIT:
             break;
     }
-    
+    // Render the frame.
     renderGraphics();  
 }
 
@@ -211,12 +203,11 @@ void getInput(void) {
         }
         // If we wish to fastfall only do so when we are not about to collide in the Y direction
         // This is to make last-second adjustments feel consistent 
-        // TODO this should not be in input.Z
-        if (IsKeyDown(KEY_DOWN) && !(colliding(state->x,state->y + 1,(*pieceMapArr[state->currentPieceIndex])[state->rotation],state->landedBoard) > 0)) {
-           state->speed = state->fastFallSpeed;
+        if (IsKeyDown(KEY_DOWN)) {
+           state->wishFastFall = TRUE;
         }
         else {
-            state->speed = levelSpeedArr[state->level];
+            state->wishFastFall = FALSE;
         }
         if (IsKeyReleased(KEY_DOWN)) {
             state->speed = levelSpeedArr[state->level];

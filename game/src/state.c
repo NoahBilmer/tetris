@@ -11,6 +11,9 @@ void addScore(State* state);
 GameStateEnum playClearAnimation(State* state);
 void transitionBackgroundHue(Color* backgroundColor);
 
+// Constants
+#define CLEAR_ANIMATION_LENGTH 50
+
 // Global state variables; all used for animation purposes 
 int colorFadeDir = -1;
 uint8_t row = 0;
@@ -48,6 +51,7 @@ void setupDefaultValues(State* state) {
 * DESCRIPTION: Sets up all the initial values for everything in the State struct.
 */ 
 void initState(State* state) {
+    state->startLevel = 7;
     setupDefaultValues(state);
     state->landedBoard =  (uint8_t (*)[23])calloc(ROWS*COLUMNS,sizeof(uint8_t*));
     state->fallingBoard = (uint8_t (*)[23])calloc(ROWS*COLUMNS,sizeof(uint8_t*)); 
@@ -67,9 +71,9 @@ void resetState(State* state) {
 /**
 * FUNCTION: MainGameLoop() 
 * DESCRIPTION: Does all the required game logic for this frame.
-* RETURNS: Returns the next state.
+* RETURNS: the next state.
 */ 
-GameStateEnum MainGameLoop(State* state) {
+GameStateEnum mainGameLoop(State* state) {
      // move the piece down if enough frames have elapsed.
     if (state->frameCount > state->speed) {
         state->frameCount = 0;
@@ -92,6 +96,9 @@ GameStateEnum MainGameLoop(State* state) {
             return GAME_OVER;
         }
     }
+
+    // Only change the speed to fastFallSpeed if we are not about to place the piece, we do this to make last second adjustments
+    // feel consistent.
     if (state->wishFastFall && !(colliding(state->x,state->y + 1,(*pieceMapArr[state->currentPieceIndex])[state->rotation],state->landedBoard) > 0)) {
         state->speed = state->fastFallSpeed;
     }
@@ -99,40 +106,48 @@ GameStateEnum MainGameLoop(State* state) {
         state->speed = levelSpeedArr[state->level];
     }
             
+    // -------------------------------------------------------
     /*** Do all piece translations and or transformations ***/
-    // Rotate the piece if we are not colliding 
+    // -------------------------------------------------------
+    // Rotate the piece if we wish to rotate AND are not going to collide  
     if (state->wishRotate && colliding(state->x,state->y,(*pieceMapArr[state->currentPieceIndex])[state->nextRotation],state->landedBoard) == 0) {
             state->rotation = state->nextRotation;
     }
-    // Move in the x direction if we are not colliding.
+    // Move in the x direction if we wish to AND are not colliding.
     if (colliding(state->x + state->moveVec.x,state->y,(*pieceMapArr[state->currentPieceIndex])[state->rotation],state->landedBoard) == 0) {
             state->x = state->x + state->moveVec.x;             
     }
-    /* Move in the y direction if we are not colliding. */
+    /* Move in the y direction if we are supposed to this frame AND are not colliding. */
     if (colliding(state->x,state->y + state->moveVec.y,(*pieceMapArr[state->currentPieceIndex])[state->rotation],state->landedBoard) > 0) {
         // Place this piece
         // create a new piece next iteration
         state->newPiece = TRUE; 
+        // Write to the board. This is the only time we actually place the piece on the landed board.
         writeBlocks(state->x,state->y,(*pieceMapArr[state->currentPieceIndex])[state->rotation],state->landedBoard,FALSE);
+        // Play the "muzzle flash" animation.
         return ANIMATION_MUZZLE_FLASH;
     }
     /* NOT colliding in the y dimension; move the piece down one.*/
     else {
         state->y = state->y + state->moveVec.y; 
     }
-    // Write to the fallingBoard
+
+    // Write to the fallingBoard if we have made any piece translation/transformation.
     if (state->wishRotate == TRUE || state->moveVec.x != 0 || state->moveVec.y != 0) {
         clearBoard(state->fallingBoard);
         writeBlocks(state->x,state->y,(*pieceMapArr[state->currentPieceIndex])[state->rotation],state->fallingBoard,FALSE);
     }
 
+    // --------------------------
+    /** Check for line clears **/
+    // --------------------------
     if (checkLineClears(state->landedBoard,state->rowsToClearArr) == TRUE) {
         // Add up our lines
         uint8_t linesClearedThisFrame = 0;
         for (int i = 0; state->rowsToClearArr[i] != -1 && i < 4; i++) {
             linesClearedThisFrame++;
         }
-        //
+        // Store our next score; but wait to add it (we add it in ANIMATION_CLEAR_BLOCKS)
         state->nextScore = doScoreCalculations(linesClearedThisFrame,state->level) + state->score;
     
         state->lines += linesClearedThisFrame;
@@ -152,7 +167,7 @@ GameStateEnum MainGameLoop(State* state) {
 * DESCRIPTION: Creates a "muzzle flash" effect by flashing the piece white as it gets placed.
 * RETURNS: Returns the next state.
 */ 
-GameStateEnum MuzzleFlash(State* state) {
+GameStateEnum muzzleFlash(State* state) {
     animationFrameCounter++;
     clearBoard(state->fallingBoard);
     writeBlocks(state->x,state->y,(*pieceMapArr[state->currentPieceIndex])[state->rotation],state->fallingBoard,TRUE);
@@ -169,7 +184,7 @@ GameStateEnum MuzzleFlash(State* state) {
 * DESCRIPTION: Creates a "muzzle flash" effect by flashing the piece white as it gets placed.
 * RETURNS: Returns the next state.
 */ 
-GameStateEnum ClearBlocks(State* state) {
+GameStateEnum clearBlocks(State* state) {
     animationFrameCounter++;
     // every 10 frames we should either change all lines to clear white,
     // or change them to 0 which will show the landedBoard. 
@@ -186,7 +201,7 @@ GameStateEnum ClearBlocks(State* state) {
         }   
     }
     // Animation is done after 50 frames, return to the main game loop.
-    if (animationFrameCounter > 50) {
+    if (animationFrameCounter > CLEAR_ANIMATION_LENGTH) {
         clearLineRows(state->landedBoard,state->rowsToClearArr);
         for (int i = 0; i < 4; i++) {
                 if (state->rowsToClearArr[i] != -1)
@@ -196,15 +211,9 @@ GameStateEnum ClearBlocks(State* state) {
         animationFrameCounter = 0;
         return MAIN_GAME_LOOP;
     }
-    
-   if (state->score >= state->nextScore)  {
-        state->score = state->nextScore;
-   } else {
-       state->score += state->nextScore / 50;
-   }
-    
 
-        
+    // Add the score while we do the clear animation.
+    addScore(state);
     
     return ANIMATION_CLEAR_BLOCKS;
 }
@@ -212,10 +221,10 @@ GameStateEnum ClearBlocks(State* state) {
 /**
 * FUNCTION: GameOver() 
 * DESCRIPTION: Executes the game over animation. we fill up the
-* screen with blocks and iterate the global color variable for each block to create a pattern
+* screen with blocks and iterate the global color variable for each block to create a pattern.
 * RETURNS: Returns the next state.
 */ 
-GameStateEnum GameOver(State* state) {
+GameStateEnum gameOver(State* state) {
    animationFrameCounter++;
     if (animationFrameCounter > 140) {
         row = 0; col = 0;
@@ -250,7 +259,7 @@ GameStateEnum GameOver(State* state) {
 * screen with blocks and iterate the global color variable for each block to create a pattern.
 * RETURNS: Returns the next state.
 */ 
-GameStateEnum TitleScreen(State* state) {
+GameStateEnum titleScreen(State* state) {
     if (IsKeyPressed(KEY_ENTER)) {
         resetState(state);
         return MAIN_GAME_LOOP;
@@ -302,6 +311,18 @@ void transitionBackgroundHue(Color* backgroundColor) {
     
 }
 
+/**
+* FUNCTION: addScore() 
+* DESCRIPTION: Incrementally adds 1/50th of the next score value to the current value.
+* NOTE: This function is only used in ClearBlocks().
+*/ 
+void addScore(State* state) {
+   if (state->score >= state->nextScore)  {
+        state->score = state->nextScore;
+   } else {
+       state->score += state->nextScore / CLEAR_ANIMATION_LENGTH;
+   }
+}
 
 
 /**

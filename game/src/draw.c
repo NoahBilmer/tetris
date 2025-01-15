@@ -5,8 +5,6 @@
 #include <stdio.h>
 #include <math.h>
 
-
-
 /**
 * FUNCTION: drawGameState() 
 * DESCRIPTION: draws the state of the game on this current frame. 
@@ -20,6 +18,7 @@ void drawGameState(State *state) {
     drawNextPiece(state);
     
 }
+
 
 /**
 * FUNCTION: drawSpriteCentered() 
@@ -37,6 +36,7 @@ void drawSpriteCentered(Texture2D texture, int x, int y,float scale) {
     0.0f,
     WHITE);
 }
+
 
 /**
 * FUNCTION: drawTitleScreen()
@@ -75,6 +75,7 @@ void drawScore(uint32_t score) {
             WHITE);
     }  
 }
+
 
 /**
 * FUNCTION: drawLevel() 
@@ -115,6 +116,7 @@ void drawBoard(uint8_t (*board)[ROWS]) {
     }
 }
 
+
 /**
 * FUNCTION: drawBlock() 
 * DESCRIPTION: Draws the provided block to the screen.
@@ -137,11 +139,11 @@ void drawBlock(int x, int y, int color) {
 */ 
 void drawNextPiece(State* state) { 
     for (int i = 0; i < SHAPE_SIZE; i++) {
-            for (int j = 0; j < SHAPE_SIZE; j++) {
-                if ((*pieceMapArr[state->nextPieceIndex])[0][i][j] > 0) {
-                    drawBlock(13 + j,5 + i,(*pieceMapArr[state->nextPieceIndex])[0][i][j]);
-                }
-                    
+        for (int j = 0; j < SHAPE_SIZE; j++) {
+            if ((*pieceMapArr[state->nextPieceIndex])[0][i][j] > 0) {
+                drawBlock(13 + j,5 + i,(*pieceMapArr[state->nextPieceIndex])[0][i][j]);
             }
+                
         }
+    }
 }

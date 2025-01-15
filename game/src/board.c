@@ -6,32 +6,27 @@
 /**
 * FUNCTION: writeBlocks() 
 * DESCRIPTION: Attempts to write the desired piece to the board at a specific x y position.
-* Also note that negative x,ys may be used, becuase the algorithm only cares about non-zero positons. 
-* RETURNS: true on success to place the values
-*          false if the piece is colliding with another piece
-*          or will have non-zero values outside the board
+* Also note that negative x,ys may be used, becuase the algorithm only cares about non-zero values in the piece. 
 */
-int writeBlocks(int x, int y, uint8_t block[SHAPE_SIZE][SHAPE_SIZE], uint8_t (*board)[ROWS], int flashPiece) {
+void writeBlocks(int x, int y, uint8_t piece[SHAPE_SIZE][SHAPE_SIZE], uint8_t (*board)[ROWS], int flashPiece) {
     uint8_t offsetRow,offsetCol;
     // Loop through 
     for (uint8_t row = 0; row < SHAPE_SIZE; row++) {
         for (uint8_t col = 0; col < SHAPE_SIZE; col++) {      
-            if (block[row][col] > 0) {
+            if (piece[row][col] > 0) {
                 offsetRow = row + y; 
                 offsetCol = col + x;
                 if (flashPiece == TRUE) {
                     board[offsetRow][offsetCol] = 8;
                 }
                 else {
-                     board[offsetRow][offsetCol] = block[row][col];
+                     board[offsetRow][offsetCol] = piece[row][col];
                 }
                
             }
             
         }
     }
-    return TRUE;
-    
 }
 
 /**
@@ -42,18 +37,18 @@ int writeBlocks(int x, int y, uint8_t block[SHAPE_SIZE][SHAPE_SIZE], uint8_t (*b
 *         2 if being placed outside the game board.
 *         0/false if no collisions.
 */ 
-int colliding(int x, int y, uint8_t block[SHAPE_SIZE][SHAPE_SIZE], uint8_t (*board)[ROWS]) {
+int colliding(int x, int y, uint8_t piece[SHAPE_SIZE][SHAPE_SIZE], uint8_t (*board)[ROWS]) {
     uint8_t offsetRow,offsetCol;
     for (uint8_t row = 0; row < SHAPE_SIZE; row++) {
         for (uint8_t col = 0; col < SHAPE_SIZE; col++) {
             offsetRow = row + y; 
             offsetCol = col + x; 
             // if we are attemping to place a piece outside the array in the X dimension
-            if ((block[row][col] > 0 && ((offsetCol >= (COLUMNS) || offsetCol < 0) || (offsetRow >= (ROWS) || offsetRow < 0)))) {
+            if ((piece[row][col] > 0 && ((offsetCol >= (COLUMNS) || offsetCol < 0) || (offsetRow >= (ROWS) || offsetRow < 0)))) {
                 return COLLISION_OUT_OF_BOUNDS;
             }
             // if we are attemping to place a piece at the same position of another piece
-            else if (((block[row][col] > 0) && (board[offsetRow][offsetCol] > 0))) {
+            else if (((piece[row][col] > 0) && (board[offsetRow][offsetCol] > 0))) {
                 return COLLISION_BLOCK_ALREADY_EXISTS;
             }
         }

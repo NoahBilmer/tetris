@@ -16,7 +16,7 @@ typedef struct State {
     uint8_t fastFallSpeed;
     GameStateEnum state;
     Color titleScreenBackground;
-    uint16_t frameCount;
+    uint32_t frameCount;
     uint8_t lines;
     int8_t level;
     int8_t startLevel;
@@ -34,10 +34,10 @@ typedef struct State {
 
 void initState(State* state);
 void resetState(State* state);
-GameStateEnum MainGameLoop(State* state);
-GameStateEnum MuzzleFlash(State* state);
-GameStateEnum ClearBlocks(State* state);
-GameStateEnum GameOver(State* state);
-GameStateEnum TitleScreen(State* state);
+GameStateEnum mainGameLoop(State* state);
+GameStateEnum muzzleFlash(State* state);
+GameStateEnum clearBlocks(State* state);
+GameStateEnum gameOver(State* state);
+GameStateEnum titleScreen(State* state);
 
 #endif
