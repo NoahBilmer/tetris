@@ -10,33 +10,33 @@ endif
 
 ifeq ($(config),debug_x64)
   raylib_config = debug_x64
-  game_premake_config = debug_x64
+  tetris_config = debug_x64
 
 else ifeq ($(config),debug_x86)
   raylib_config = debug_x86
-  game_premake_config = debug_x86
+  tetris_config = debug_x86
 
 else ifeq ($(config),debug_arm64)
   raylib_config = debug_arm64
-  game_premake_config = debug_arm64
+  tetris_config = debug_arm64
 
 else ifeq ($(config),release_x64)
   raylib_config = release_x64
-  game_premake_config = release_x64
+  tetris_config = release_x64
 
 else ifeq ($(config),release_x86)
   raylib_config = release_x86
-  game_premake_config = release_x86
+  tetris_config = release_x86
 
 else ifeq ($(config),release_arm64)
   raylib_config = release_arm64
-  game_premake_config = release_arm64
+  tetris_config = release_arm64
 
 else
   $(error "invalid configuration $(config)")
 endif
 
-PROJECTS := raylib game-premake
+PROJECTS := raylib tetris
 
 .PHONY: all clean help $(PROJECTS) 
 
@@ -48,15 +48,15 @@ ifneq (,$(raylib_config))
 	@${MAKE} --no-print-directory -C _build -f raylib.make config=$(raylib_config)
 endif
 
-game-premake: raylib
-ifneq (,$(game_premake_config))
-	@echo "==== Building game-premake ($(game_premake_config)) ===="
-	@${MAKE} --no-print-directory -C _build -f game-premake.make config=$(game_premake_config)
+tetris: raylib
+ifneq (,$(tetris_config))
+	@echo "==== Building tetris ($(tetris_config)) ===="
+	@${MAKE} --no-print-directory -C _build -f tetris.make config=$(tetris_config)
 endif
 
 clean:
 	@${MAKE} --no-print-directory -C _build -f raylib.make clean
-	@${MAKE} --no-print-directory -C _build -f game-premake.make clean
+	@${MAKE} --no-print-directory -C _build -f tetris.make clean
 
 help:
 	@echo "Usage: make [config=name] [target]"
@@ -73,6 +73,6 @@ help:
 	@echo "   all (default)"
 	@echo "   clean"
 	@echo "   raylib"
-	@echo "   game-premake"
+	@echo "   tetris"
 	@echo ""
 	@echo "For more information, see https://github.com/premake/premake-core/wiki"
